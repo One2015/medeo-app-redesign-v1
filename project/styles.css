@@ -24,33 +24,52 @@ html, body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
+  /* Prevent any horizontal scroll caused by the phone bezel / dropshadow
+     extending past the centered stage. */
+  overflow-x: hidden;
 }
 
 * { box-sizing: border-box; }
 
 #root {
+  /* Use dynamic viewport units so mobile Safari's collapsing chrome
+     doesn't push content under the URL bar. Fallback to 100vh for
+     browsers without dvh support. */
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  /* env(safe-area-inset-*) keeps the phone clear of the notch / home
+     indicator when viewport-fit=cover is on. The base padding is
+     reduced from 24 → 16 because Pro Max-class devices are tight. */
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
 }
 
-/* Responsive phone stage — scales the fixed 402×874 phone to fit any viewport.
-   We pick the smaller of (available width / 402) and (available height / 874),
-   capped at 1 so the phone never grows past its native size. The wrapper
-   reserves space at the scaled size so layout stays correct. */
+/* Responsive phone stage — scales the fixed 393×852 phone (with its
+   24px bezel ring) to fit any viewport. We pick the smaller of
+   (available width / phone-w-with-bezel) and (available height /
+   phone-h-with-bezel), capped at 1 so the phone never grows past
+   native. The wrapper reserves space at the scaled size so layout
+   stays correct around the centered phone. */
 .phone-stage {
   --phone-w: 393px;
   --phone-h: 852px;
-  --stage-pad: 48px;
+  /* The phone's 11+12px box-shadow bezel + ~50px drop shadow needs
+     room around it; reserve 28px on each side so the chrome shows. */
+  --phone-bezel: 28px;
+  --stage-pad: 24px;
   --stage-scale: min(
     1,
-    calc((100vw - var(--stage-pad)) / 393),
-    calc((100vh - var(--stage-pad)) / 852)
+    calc((100vw - var(--stage-pad)) / (393 + var(--phone-bezel) * 2)),
+    calc((100dvh - var(--stage-pad)) / (852 + var(--phone-bezel) * 2))
   );
-  width: calc(var(--phone-w) * var(--stage-scale));
-  height: calc(var(--phone-h) * var(--stage-scale));
+  width: calc((var(--phone-w) + var(--phone-bezel) * 2) * var(--stage-scale));
+  height: calc((var(--phone-h) + var(--phone-bezel) * 2) * var(--stage-scale));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -63,8 +82,24 @@ html, body {
 }
 
 @media (max-width: 480px) {
-  #root { padding: 12px; }
-  .phone-stage { --stage-pad: 24px; }
+  #root {
+    padding:
+      max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+  .phone-stage {
+    --stage-pad: 8px;
+    --phone-bezel: 16px;
+  }
+}
+
+/* Coarse-pointer (touch) devices: the Tweaks dev panel is desktop-only.
+   Hide it on phones so it doesn't overlap the prototype frame. */
+@media (hover: none) and (pointer: coarse) {
+  .twk-panel,
+  .twk-pill { display: none !important; }
 }
 
 /* Hide scrollbars inside the phone */
