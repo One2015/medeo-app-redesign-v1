@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260519m" />
+  <link rel="stylesheet" href="styles.css?v=20260519n" />
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
@@ -23,13 +23,82 @@
 <body>
   <div id="root"></div>
 
-  <script src="data.js?v=20260519m"></script>
-  <script type="text/babel" src="ios-frame.jsx?v=20260519m"></script>
-  <script type="text/babel" src="tweaks-panel.jsx?v=20260519m"></script>
-  <script type="text/babel" src="icons.jsx?v=20260519m"></script>
-  <script type="text/babel" src="modals.jsx?v=20260519m"></script>
-  <script type="text/babel" src="screens.jsx?v=20260519m"></script>
-  <script type="text/babel" src="nav.jsx?v=20260519m"></script>
-  <script type="text/babel" src="app.jsx?v=20260519m"></script>
+  <!-- Phone-stage scaler — computes --stage-scale from the actual
+       visual viewport so the prototype fits inside Safari's collapsing
+       URL bar on mobile. CSS calc() with 100dvh isn't reliable on
+       iOS Safari, so JS owns the source of truth. -->
+  <script>
+    (function () {
+      var PHONE_W = 393, PHONE_H = 852;
+      var root = document.documentElement;
+      function getStageVars() {
+        var s = getComputedStyle(document.querySelector('.phone-stage') || root);
+        var bezel = parseFloat(s.getPropertyValue('--phone-bezel')) || 24;
+        var pad = parseFloat(s.getPropertyValue('--stage-pad')) || 16;
+        return { bezel: bezel, pad: pad };
+      }
+      function getInsets() {
+        var probe = document.createElement('div');
+        probe.style.cssText =
+          'position:fixed;visibility:hidden;pointer-events:none;' +
+          'top:env(safe-area-inset-top);left:env(safe-area-inset-left);' +
+          'right:env(safe-area-inset-right);bottom:env(safe-area-inset-bottom);';
+        document.body.appendChild(probe);
+        var cs = getComputedStyle(probe);
+        var insets = {
+          top: parseFloat(cs.top) || 0,
+          right: parseFloat(cs.right) || 0,
+          bottom: parseFloat(cs.bottom) || 0,
+          left: parseFloat(cs.left) || 0,
+        };
+        document.body.removeChild(probe);
+        return insets;
+      }
+      function update() {
+        var vv = window.visualViewport;
+        var vw = (vv && vv.width)  || window.innerWidth;
+        var vh = (vv && vv.height) || window.innerHeight;
+        var v = getStageVars();
+        var ins = getInsets();
+        // Effective padding = max(stage pad, safe-area inset on that side).
+        var padTop    = Math.max(v.pad, ins.top);
+        var padBottom = Math.max(v.pad, ins.bottom);
+        var padLeft   = Math.max(v.pad, ins.left);
+        var padRight  = Math.max(v.pad, ins.right);
+        var availW = vw - padLeft - padRight;
+        var availH = vh - padTop  - padBottom;
+        var totalW = PHONE_W + v.bezel * 2;
+        var totalH = PHONE_H + v.bezel * 2;
+        var scale = Math.min(1, availW / totalW, availH / totalH);
+        // Guard against negative / NaN before first layout.
+        if (!isFinite(scale) || scale <= 0) scale = 1;
+        root.style.setProperty('--stage-scale', String(scale));
+      }
+      // Re-run on every viewport change: URL bar collapse, orientation,
+      // keyboard show/hide, window resize.
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', update);
+        window.visualViewport.addEventListener('scroll', update);
+      }
+      window.addEventListener('resize', update);
+      window.addEventListener('orientationchange', update);
+      // First measurement after layout so dvh / safe-area values are real.
+      requestAnimationFrame(update);
+      // And again after fonts/babel/react load, since the .phone-stage
+      // element only exists after React mounts.
+      setTimeout(update, 0);
+      setTimeout(update, 200);
+      setTimeout(update, 800);
+    })();
+  </script>
+
+  <script src="data.js?v=20260519n"></script>
+  <script type="text/babel" src="ios-frame.jsx?v=20260519n"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=20260519n"></script>
+  <script type="text/babel" src="icons.jsx?v=20260519n"></script>
+  <script type="text/babel" src="modals.jsx?v=20260519n"></script>
+  <script type="text/babel" src="screens.jsx?v=20260519n"></script>
+  <script type="text/babel" src="nav.jsx?v=20260519n"></script>
+  <script type="text/babel" src="app.jsx?v=20260519n"></script>
 </body>
 </html>

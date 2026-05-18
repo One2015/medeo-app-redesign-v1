@@ -31,42 +31,41 @@ html, body {
 
 * { box-sizing: border-box; }
 
+/* Pinning #root to the visual viewport via fixed positioning is the
+   only reliable way to get the *actually visible* area on iOS Safari
+   (100vh / 100dvh both have edge cases where the bottom URL bar
+   overlaps the page). The JS scaler below sizes the phone to fit
+   inside this fixed box. */
+html, body { height: 100%; }
 #root {
-  /* Use dynamic viewport units so mobile Safari's collapsing chrome
-     doesn't push content under the URL bar. Fallback to 100vh for
-     browsers without dvh support. */
-  min-height: 100vh;
-  min-height: 100dvh;
+  position: fixed;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* env(safe-area-inset-*) keeps the phone clear of the notch / home
-     indicator when viewport-fit=cover is on. The base padding is
-     reduced from 24 → 16 because Pro Max-class devices are tight. */
   padding:
     max(16px, env(safe-area-inset-top))
     max(16px, env(safe-area-inset-right))
     max(16px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
+  overflow: hidden;
 }
 
-/* Responsive phone stage — scales the fixed 393×852 phone (with its
-   24px bezel ring) to fit any viewport. We pick the smaller of
-   (available width / phone-w-with-bezel) and (available height /
-   phone-h-with-bezel), capped at 1 so the phone never grows past
-   native. The wrapper reserves space at the scaled size so layout
-   stays correct around the centered phone. */
+/* Responsive phone stage — `--stage-scale` is computed in JS (see
+   the inline script in index.html) from window.visualViewport so it
+   tracks Safari's collapsing URL bar correctly. The CSS fallback
+   below covers the very first paint before JS runs. */
 .phone-stage {
   --phone-w: 393px;
   --phone-h: 852px;
-  /* The phone's 11+12px box-shadow bezel + ~50px drop shadow needs
-     room around it; reserve 28px on each side so the chrome shows. */
-  --phone-bezel: 28px;
-  --stage-pad: 24px;
+  --phone-bezel: 24px;
+  --stage-pad: 16px;
+  /* Fallback for first paint / no-JS — uses dvh with a generous
+     extra margin so we err on the side of "fits" rather than "clips". */
   --stage-scale: min(
     1,
-    calc((100vw - var(--stage-pad)) / (393 + var(--phone-bezel) * 2)),
-    calc((100dvh - var(--stage-pad)) / (852 + var(--phone-bezel) * 2))
+    calc((100vw - var(--stage-pad) * 2) / (393 + var(--phone-bezel) * 2)),
+    calc((100dvh - var(--stage-pad) * 2) / (852 + var(--phone-bezel) * 2))
   );
   width: calc((var(--phone-w) + var(--phone-bezel) * 2) * var(--stage-scale));
   height: calc((var(--phone-h) + var(--phone-bezel) * 2) * var(--stage-scale));
@@ -91,7 +90,7 @@ html, body {
   }
   .phone-stage {
     --stage-pad: 8px;
-    --phone-bezel: 16px;
+    --phone-bezel: 14px;
   }
 }
 
