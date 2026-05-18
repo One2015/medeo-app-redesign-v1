@@ -1,0 +1,387 @@
+/* Medeo redesign — base styles */
+:root {
+  --accent: #7C5BFD;
+  --accent-soft: #EDE6FF;
+  --accent-deep: #5A3DD8;
+  --text: #0A0A0A;
+  --text-2: #5C5C66;
+  --text-3: #9BA0AB;
+  --bg-grad: linear-gradient(170deg, #E9DEF7 0%, #F4EEFC 28%, #FBFAFE 60%, #FCFBFE 100%);
+  --bg-grad-dark: linear-gradient(170deg, #1D1430 0%, #160F26 35%, #0B0816 100%);
+  --card: #ffffff;
+  --hair: rgba(0,0,0,0.06);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  /* Manrope is the One2X / Figma body face; Nohemi is the display face but
+     is paid, so we fall back to the same -apple-system stack that picked
+     "SF Pro Display" before. Manrope first means cards and chips match
+     Figma immediately; the iOS status bar still requests SF Pro inline. */
+  font-family: "Manrope", -apple-system, "SF Pro Text", "SF Pro", system-ui, sans-serif;
+  background: #d8d3e0;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+* { box-sizing: border-box; }
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* Responsive phone stage — scales the fixed 402×874 phone to fit any viewport.
+   We pick the smaller of (available width / 402) and (available height / 874),
+   capped at 1 so the phone never grows past its native size. The wrapper
+   reserves space at the scaled size so layout stays correct. */
+.phone-stage {
+  --phone-w: 393px;
+  --phone-h: 852px;
+  --stage-pad: 48px;
+  --stage-scale: min(
+    1,
+    calc((100vw - var(--stage-pad)) / 393),
+    calc((100vh - var(--stage-pad)) / 852)
+  );
+  width: calc(var(--phone-w) * var(--stage-scale));
+  height: calc(var(--phone-h) * var(--stage-scale));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.phone-stage > .phone {
+  flex: 0 0 auto;
+  transform: scale(var(--stage-scale));
+  transform-origin: center center;
+}
+
+@media (max-width: 480px) {
+  #root { padding: 12px; }
+  .phone-stage { --stage-pad: 24px; }
+}
+
+/* Hide scrollbars inside the phone */
+.phone-scroll::-webkit-scrollbar { display: none; }
+.phone-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* Liquid glass — the core recipe */
+.glass {
+  position: relative;
+  background: rgba(255,255,255,0.42);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.85) inset,
+    0 -1px 0 rgba(255,255,255,0.35) inset,
+    0 0 0 0.5px rgba(255,255,255,0.6) inset,
+    0 12px 40px rgba(60,40,140,0.18),
+    0 4px 14px rgba(60,40,140,0.08);
+  border: 0.5px solid rgba(255,255,255,0.5);
+}
+.glass-dark {
+  background: rgba(28,18,48,0.5);
+  backdrop-filter: blur(34px) saturate(180%);
+  -webkit-backdrop-filter: blur(34px) saturate(180%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.18) inset,
+    0 -1px 0 rgba(255,255,255,0.06) inset,
+    0 0 0 0.5px rgba(255,255,255,0.12) inset,
+    0 12px 40px rgba(0,0,0,0.45);
+}
+
+/* Wabi-style glass — more translucent + heavier blur than the
+   default `.glass`. Background reads as a frosted window: clearly
+   shows what's behind it, with a soft white tint and a crisp top
+   inset highlight that mimics light catching the rim of an iOS
+   liquid-glass control. Used by the Wabi nav trio. */
+.glass-wabi {
+  position: relative;
+  background: rgba(255, 255, 255, 0.40);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  box-shadow:
+    0 1.5px 0 rgba(255, 255, 255, 0.9) inset,
+    0 -1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 0 0 0.5px rgba(255, 255, 255, 0.65) inset,
+    0 12px 36px rgba(20, 14, 60, 0.16),
+    0 4px 12px rgba(20, 14, 60, 0.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.55);
+}
+
+/* Tab indicator paired with `.glass-wabi`. The active tab pill sits
+   on top of the frosted glass at a clean opaque white so the label
+   stays high-contrast even over busy content. */
+.tab-indicator-wabi {
+  position: absolute;
+  top: 0; left: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 0 0 0.5px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(40, 25, 100, 0.1),
+    0 1px 2px rgba(40, 25, 100, 0.06);
+  transition: transform 0.42s cubic-bezier(0.34, 1.4, 0.5, 1), width 0.42s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+/* Chromatic edge — fakes refraction with rainbow rim */
+.glass-refract::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from 200deg,
+    rgba(255,180,210,0.0) 0%,
+    rgba(180,210,255,0.55) 18%,
+    rgba(255,180,255,0.0) 35%,
+    rgba(180,255,220,0.55) 55%,
+    rgba(255,210,180,0.0) 75%,
+    rgba(210,180,255,0.55) 92%,
+    rgba(255,180,210,0.0) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* The liquid distortion blob — sits behind the glass and warps subtly */
+.glass-liquid::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(50% 70% at 25% 30%, rgba(255,255,255,0.55), transparent 60%),
+    radial-gradient(40% 60% at 80% 70%, rgba(200,180,255,0.35), transparent 60%);
+  filter: url(#liquidWarp);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
+
+/* Drop shadow under the dock */
+.dock-shadow {
+  filter: drop-shadow(0 18px 32px rgba(40,20,90,0.18))
+          drop-shadow(0 4px 12px rgba(40,20,90,0.1));
+}
+
+/* Recipe chip group — text tabs with a purple underline marking the
+   active tab (see reference). Inactive: muted neutral text, no
+   underline. Active: purple text + 2px purple underline anchored just
+   under the baseline. Manrope Medium 15px / 20px. */
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px 10px;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  color: rgba(60, 60, 67, 0.55);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.18s ease;
+}
+.chip.active {
+  color: #6E3CFB;
+}
+.chip.active::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  height: 2px;
+  background: #6E3CFB;
+  border-radius: 2px;
+}
+
+/* Headline — Figma headline/small: 24/32, weight 600, Nohemi → fallback. */
+.h-recipe {
+  font-family: "Manrope", -apple-system, system-ui, sans-serif;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #09090B;
+}
+
+/* Recipe card — thumbnail uses Figma radius/28 = 28px. Height is driven
+   per-recipe (aspect ratio OR fixed pixel height) to reproduce the staggered
+   masonry shown in the Figma showcaseFeeds frame. */
+.recipe-card {
+  border-radius: 28px;
+  overflow: hidden;
+  position: relative;
+  background: #f0eaf6;
+  width: 100%;
+}
+/* "New" tag — Figma newTag (e.g. node 18606:24559):
+   bg rgba(9,9,11,0.2) + 0.5px white-40% border + 5px backdrop blur,
+   12px corner radius (NOT a pill), 4px/6px padding. */
+.recipe-card .badge-new {
+  position: absolute;
+  top: 16px;
+  right: 15.5px;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: #fff;
+  background: rgba(9, 9, 11, 0.2);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  border: 0.5px solid rgba(255, 255, 255, 0.4);
+  padding: 4px 6px 4px 4px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.9s linear infinite; }
+
+/* Slide-up modal */
+.sheet-enter {
+  animation: sheetIn 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes sheetIn {
+  from { transform: translateY(102%); }
+  to { transform: translateY(0); }
+}
+.slide-in-right {
+  animation: slideInRight 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slideInRight {
+  from { transform: translateX(102%); }
+  to { transform: translateX(0); }
+}
+
+/* Soft fade for screen swap */
+.screen-fade {
+  animation: fade 0.32s ease;
+}
+@keyframes fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shareFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Detail-page inline toast — pops up from just above the action bar
+   when the user taps the CTA without filling required fields. */
+@keyframes detailToastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Bell with subtle ring */
+@keyframes ring {
+  0%, 100% { transform: rotate(0); }
+  10%, 30%, 50% { transform: rotate(-8deg); }
+  20%, 40%, 60% { transform: rotate(8deg); }
+  70% { transform: rotate(0); }
+}
+.ring-anim { animation: ring 1.6s ease infinite; transform-origin: 50% 14%; }
+
+/* Glass refraction shimmer */
+@keyframes shimmer {
+  0% { transform: translateX(-110%) skewX(-12deg); }
+  100% { transform: translateX(220%) skewX(-12deg); }
+}
+.shimmer-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.shimmer-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(95deg, transparent, rgba(255,255,255,0.55) 50%, transparent);
+  animation: shimmer 4.5s ease infinite;
+  animation-delay: 1.5s;
+}
+
+/* Tab indicator */
+.tab-indicator {
+  position: absolute;
+  top: 0; left: 0;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.85);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,1) inset,
+    0 0 0 0.5px rgba(0,0,0,0.04),
+    0 4px 14px rgba(60,40,140,0.12);
+  transition: transform 0.42s cubic-bezier(0.34, 1.4, 0.5, 1), width 0.42s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+/* Floating action button */
+.fab-purple {
+  background: linear-gradient(160deg, #9B7AFF 0%, #6B45F0 100%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.45) inset,
+    0 -1px 0 rgba(0,0,0,0.18) inset,
+    0 10px 24px rgba(95,55,225,0.45),
+    0 3px 8px rgba(95,55,225,0.3);
+  color: #fff;
+}
+
+/* Status pill (credits) */
+.pill-credits {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px 7px 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1A1A22;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 0.5px solid rgba(255,255,255,0.6);
+  box-shadow: 0 2px 8px rgba(60,40,140,0.06);
+}
+
+/* Notification row */
+.notif-row {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  transition: background 0.16s;
+}
+.notif-row:active { background: rgba(0,0,0,0.04); }
+.notif-row.unread { background: rgba(124, 91, 253, 0.07); }
+.notif-dot {
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  flex-shrink: 0;
+  margin-top: 8px;
+}

@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Python (serve.py local server)
+__pycache__/
+*.pyc
+*.pyo
+.python-version
+.venv/
+venv/
+
+# Node (if added later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel local state
+.vercel/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Env
+.env
+.env.local
+.env.*.local
