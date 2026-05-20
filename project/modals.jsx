@@ -27,9 +27,8 @@ const COMPOSER_KB_H = 257;
 const COMPOSER_TA_MAX = 360;
 
 function ComposerSheet({ onClose, accent, navHeight = 90, onSend }) {
-  const [text, setText] = React.useState('');
+  const [text, setText] = React.useState('Create a short video with');
   const [ideas, setIdeas] = React.useState(false);
-  const [active, setActive] = React.useState(null);
 
   // Send handler — the purple play button in the prompt card and the
   // ⏎ key both go through here. Hands the trimmed text to the parent
@@ -39,13 +38,6 @@ function ComposerSheet({ onClose, accent, navHeight = 90, onSend }) {
     const t = (text || '').trim();
     if (typeof onSend === 'function') onSend(t);
   }, [text, onSend]);
-
-  const sections = [
-    { id: 'images', label: 'Images',        icon: <Icon.Photo  size={22} color="#1F1A23" stroke={1.8} /> },
-    { id: 'avatar', label: 'Avatar',        icon: <Icon.User   size={22} color="#1F1A23" stroke={1.8} /> },
-    { id: 'music',  label: 'Music',         icon: <Icon.Music  size={22} color="#1F1A23" stroke={1.8} /> },
-    { id: 'ai',     label: 'AI Generation', icon: <Icon.Wand   size={22} color="#1F1A23" stroke={1.8} /> },
-  ];
 
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 80 }}>
@@ -74,14 +66,13 @@ function ComposerSheet({ onClose, accent, navHeight = 90, onSend }) {
         <Icon.Close size={16} stroke={2.4} />
       </button>
 
-      {/* Prompt card + chip row — BOTTOM-anchored stack so the chips
-          hug the top of the keyboard and the card sits right above
-          the chips (8px gap). The card grows UPWARD with content,
-          iOS-message-input style. */}
+      {/* Prompt card — BOTTOM-anchored so it hugs / slightly overlaps
+          the keyboard top like the reference. Assets now live inside
+          the prompt card as chips; the keyboard itself stays clean. */}
       <div className="sheet-enter" style={{
         position: 'absolute',
-        bottom: COMPOSER_KB_H + 8, left: 12, right: 12,
-        display: 'flex', flexDirection: 'column', gap: 8,
+        bottom: COMPOSER_KB_H - 10, left: 0, right: 0,
+        padding: '0 0',
         zIndex: 4,
         pointerEvents: 'auto',
       }}>
@@ -91,62 +82,14 @@ function ComposerSheet({ onClose, accent, navHeight = 90, onSend }) {
           ideas={ideas}
           setIdeas={setIdeas}
           accent={accent}
-          onInputFocus={() => setActive(null)}
+          onInputFocus={() => {}}
           textareaMaxH={COMPOSER_TA_MAX}
           onSend={handleSend}
         />
-
-        {/* Section chips — sit 8px below the card and ~8px above the
-            keyboard. Active chip lights up with a 100% white pill. */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '0 4px',
-        }}>
-          {sections.map((s) => {
-            const isActive = active === s.id;
-            const color = isActive ? '#1F1A23' : 'rgba(255, 255, 255, 0.92)';
-            return (
-              <button
-                key={s.id}
-                onClick={() => setActive(isActive ? null : s.id)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: isActive ? '8px 12px' : '8px 4px',
-                  borderRadius: 999, border: 'none', cursor: 'pointer',
-                  background: isActive ? '#FFFFFF' : 'transparent',
-                  boxShadow: isActive
-                    ? '0 4px 14px rgba(20, 8, 60, 0.18), inset 0 1px 1px rgba(255,255,255,0.7)'
-                    : 'none',
-                  opacity: isActive ? 1 : 0.85,
-                  transition: 'background 0.18s ease, padding 0.18s ease, opacity 0.16s ease, box-shadow 0.18s ease',
-                }}
-              >
-                {React.cloneElement(s.icon, { color, size: 16, stroke: 1.8 })}
-                <span style={{
-                  fontFamily: '"Manrope", system-ui, sans-serif',
-                  fontSize: 13, fontWeight: 600, letterSpacing: -0.05,
-                  color, whiteSpace: 'nowrap',
-                  textShadow: isActive ? 'none' : '0 1px 2px rgba(20,8,60,0.18)',
-                }}>{s.label}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
-      {/* Section panel — only when a chip is active. Draggable. */}
-      {active && (
-        <SectionSheet
-          key={active}
-          section={active}
-          accent={accent}
-          onClose={() => setActive(null)}
-        />
-      )}
-
-      {/* Fake keyboard — only when no section sheet is up, so it
-          doesn't compete with the draggable panel. */}
-      {!active && <FakeKeyboard />}
+      {/* Fake keyboard — pure keyboard only; no asset picker inside. */}
+      <FakeKeyboard />
     </div>
   );
 }
@@ -161,15 +104,23 @@ function ComposerCard({ text, setText, ideas, setIdeas, accent, onInputFocus, te
   const fileInputRef = React.useRef(null);
   // Default rest height of the textarea — roughly 2 lines. The
   // textarea auto-grows beyond this on input, up to `textareaMaxH`.
-  const minTaH = 56;
+  const minTaH = 25;
   // Local state for the Add menu (URL / file). Opens when the "+"
   // button in the left action cluster is tapped.
   const [addMenuOpen, setAddMenuOpen] = React.useState(false);
   const [urlMode, setUrlMode] = React.useState(false);
   const [urlValue, setUrlValue] = React.useState('');
-  // Attached items the user has added via "+" — shown as chips inside
-  // the textarea area. Each item is { id, kind: 'url'|'file', label }.
-  const [attached, setAttached] = React.useState([]);
+  // Attached items live inside the composer card, not inside the
+  // keyboard. Seeded with prototype assets to match the reference
+  // screenshot and make the affordance obvious on first open.
+  // Each item is { id, kind: 'url'|'file'|'music'|'text'|'avatar', label }.
+  const [attached, setAttached] = React.useState([
+    { id: 'seed-image', kind: 'file', label: 'Debug image' },
+    { id: 'seed-video', kind: 'file', label: 'Debug video' },
+    { id: 'seed-music', kind: 'music', label: 'Debug BGM' },
+    { id: 'seed-text', kind: 'text', label: 'Debug text' },
+    { id: 'seed-avatar', kind: 'avatar', label: 'Marco Rossi' },
+  ]);
 
   const addUrl = () => {
     const v = urlValue.trim();
@@ -219,73 +170,111 @@ function ComposerCard({ text, setText, ideas, setIdeas, accent, onInputFocus, te
         onInputFocus && onInputFocus();
       }}
       style={{
-        background: '#FFFFFF',
-        borderRadius: 24,
-        padding: '14px 16px 12px',
+        background: 'rgba(255,255,255,0.58)',
+        borderRadius: '28px 28px 0 0',
+        padding: '18px 22px 12px',
         display: 'flex', flexDirection: 'column',
-        border: '0.5px solid rgba(0, 0, 0, 0.04)',
-        boxShadow: '0 24px 60px rgba(20, 8, 60, 0.18), 0 4px 12px rgba(20, 8, 60, 0.06)',
+        borderTop: '0.5px solid rgba(255, 255, 255, 0.72)',
+        boxShadow: '0 -18px 60px rgba(20, 8, 60, 0.18), 0 -1px 2px rgba(255,255,255,0.6)',
+        backdropFilter: 'blur(26px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(26px) saturate(180%)',
       }}>
-      <textarea
-        ref={inputRef}
-        value={text}
-        onChange={(e) => { setText(e.target.value); autosize(); }}
-        onFocus={() => onInputFocus && onInputFocus()}
-        onKeyDown={(e) => {
-          // Enter sends; Shift+Enter keeps native newline behaviour.
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            if (typeof onSend === 'function') onSend();
-          }
-        }}
-        placeholder="Type anything..."
-        rows={1}
-        style={{
-          width: '100%',
-          height: minTaH, minHeight: minTaH, maxHeight: textareaMaxH,
-          border: 'none', outline: 'none', background: 'transparent', resize: 'none',
-          padding: 0, overflow: 'auto',
-          fontFamily: '"Manrope", system-ui, sans-serif',
-          fontSize: 17, lineHeight: '24px', fontWeight: 500,
-          color: '#1F1A23', letterSpacing: 0.1,
-        }}
-      />
+      {/* Prompt flow — textarea and resource chips live in the same
+          flex-wrap line, so "Create a short video with" is immediately
+          followed by the slots instead of forcing the slots onto a
+          separate row. */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
+        columnGap: 5, rowGap: 0,
+      }}>
+        <textarea
+          ref={inputRef}
+          value={text}
+          onChange={(e) => { setText(e.target.value); autosize(); }}
+          onFocus={() => onInputFocus && onInputFocus()}
+          onKeyDown={(e) => {
+            // Enter sends; Shift+Enter keeps native newline behaviour.
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              if (typeof onSend === 'function') onSend();
+            }
+          }}
+          placeholder="Create a short video with..."
+          rows={1}
+          style={{
+            // Width chosen so the first asset chip can sit on the same
+            // line in the 393px prototype viewport, matching the
+            // reference screenshot.
+            width: 208,
+            height: 25, minHeight: 25, maxHeight: 50,
+            border: 'none', outline: 'none', background: 'transparent', resize: 'none',
+            padding: 0, overflow: 'hidden',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 17, lineHeight: '25px', fontWeight: 500,
+            color: '#1F1A23', letterSpacing: 0.1,
+          }}
+        />
 
-      {/* Attached items — small pills shown between textarea and the
-          action row when the user has added URL(s) or file(s). */}
-      {attached.length > 0 && (
+        {/* Attached assets — inline resource chips inside the prompt
+            surface (not in the keyboard). They visually continue the
+            sentence above, matching the native app reference. */}
+        {attached.length > 0 && (
         <div style={{
-          display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6,
-        }}>
-          {attached.map((a) => (
-            <div key={a.id} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '4px 6px 4px 10px', borderRadius: 999,
-              background: 'rgba(124, 91, 253, 0.08)',
-              border: '0.5px solid rgba(124, 91, 253, 0.20)',
-              maxWidth: 200,
+            display: 'contents',
+          }}>
+            {attached.map((a, idx) => (
+              <React.Fragment key={a.id}>
+              {idx === attached.length - 1 && (
+                <span style={{
+                  fontFamily: '"Manrope", system-ui, sans-serif',
+                  fontSize: 17, lineHeight: '25px', fontWeight: 500,
+                  color: '#1F1A23',
+                }}>and</span>
+              )}
+              <span style={{
+                display: 'inline-flex', alignItems: 'baseline', gap: 4,
+                padding: '0 0', borderRadius: 0,
+                background: 'transparent',
+                border: 'none',
+                maxWidth: 200,
             }}>
-              {a.kind === 'url'
-                ? <Icon.Sparkle size={12} color={accent} />
-                : <Icon.Photo size={12} color={accent} stroke={2} />}
+              {a.kind === 'music'
+                ? <Icon.Music size={14} color="rgba(95,92,104,0.72)" stroke={2} />
+                : a.kind === 'avatar'
+                  ? <Icon.User size={14} color="rgba(95,92,104,0.72)" stroke={2} />
+                  : a.kind === 'text'
+                    ? <Icon.Sparkle size={13} color="rgba(95,92,104,0.72)" />
+                    : <Icon.Photo size={14} color="rgba(95,92,104,0.72)" stroke={2} />}
               <span style={{
                 fontFamily: '"Manrope", system-ui, sans-serif',
-                fontSize: 12, fontWeight: 500, color: '#1F1A23',
+                fontSize: 16, lineHeight: '25px', fontWeight: 500, color: 'rgba(95,92,104,0.78)',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                maxWidth: 140,
+                maxWidth: 128,
               }}>{a.label}</span>
-              <button onClick={() => removeAttached(a.id)} aria-label="Remove" style={{
-                width: 16, height: 16, borderRadius: 999,
-                background: 'rgba(9, 9, 11, 0.10)', border: 'none', cursor: 'pointer',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                padding: 0, color: '#3F3F46', flexShrink: 0,
-              }}>
-                <Icon.Close size={8} stroke={2.4} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+              {idx < attached.length - 1 && (
+                <span style={{
+                  marginLeft: -2,
+                  fontFamily: '"Manrope", system-ui, sans-serif',
+                  fontSize: 17, lineHeight: '25px', fontWeight: 500,
+                  color: 'rgba(31,26,35,0.75)',
+                }}>,</span>
+              )}
+              </span>
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        marginTop: 4,
+        fontFamily: '"Manrope", system-ui, sans-serif',
+        fontSize: 12, lineHeight: '16px', fontWeight: 500,
+        color: 'rgba(95,92,104,0.72)',
+        letterSpacing: 0.1,
+      }}>
+        {Math.max(0, text.length + attached.reduce((n, a) => n + a.label.length + 1, 0))} / 10,000
+      </div>
 
       {/* Hidden file input — triggered by the Add menu "Add file" option. */}
       <input
@@ -298,7 +287,7 @@ function ComposerCard({ text, setText, ideas, setIdeas, accent, onInputFocus, te
 
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginTop: 8, gap: 8,
+        marginTop: 14, gap: 8,
       }}>
         {/* Left cluster — Add ("+"), 3D, aspect ratio pill, overflow.
             The "+" anchors a small popover for URL / file attachments. */}
@@ -435,20 +424,26 @@ function ComposerCard({ text, setText, ideas, setIdeas, accent, onInputFocus, te
           aria-label="Send"
           onClick={() => onSend && onSend()}
           style={{
-            width: 38, height: 38, borderRadius: 999,
-            background: accent,
-            color: '#FFFFFF',
-            border: 'none', cursor: 'pointer', padding: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 6px 16px ${accent}55, inset 0 1px 1px rgba(255,255,255,0.4)`,
+            height: 44, minWidth: 86, borderRadius: 'var(--shape-radius-full)',
+            background: 'var(--color-schemes-primary)',
+            color: 'var(--color-schemes-on-primary)',
+            border: 'none', cursor: 'pointer', padding: '0 17px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: '0 6px 16px rgba(134,61,251,0.34), inset 0 1px 1px rgba(255,255,255,0.4)',
             transition: 'background 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease',
+            fontFamily: 'var(--font-family-plain, "Manrope", system-ui, sans-serif)',
+            fontSize: 'var(--type-label-large-prominent-size)',
+            lineHeight: 'var(--type-label-large-prominent-leading)',
+            fontWeight: 'var(--type-label-large-prominent-weight)',
+            letterSpacing: 'var(--type-label-large-prominent-tracking)',
           }}
           onPointerDown={(e) => { e.currentTarget.style.transform = 'scale(0.94)'; }}
           onPointerUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           onPointerCancel={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           onPointerLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
         >
-          <Icon.Play2 size={14} color="#FFFFFF" />
+          <Icon.Play2 size={14} color="var(--color-schemes-on-primary)" />
+          生成
         </button>
       </div>
     </div>
@@ -456,9 +451,9 @@ function ComposerCard({ text, setText, ideas, setIdeas, accent, onInputFocus, te
 }
 
 const composerIconBtn = {
-  width: 34, height: 34, borderRadius: 999,
+  width: 44, height: 44, borderRadius: 'var(--shape-radius-full)',
   border: 'none', cursor: 'pointer', padding: 0,
-  background: 'rgba(9, 9, 11, 0.04)',
+  background: 'rgba(9, 9, 11, 0.06)',
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
 };
 
@@ -689,7 +684,7 @@ function ImagesPanel() {
         }}>
           {tab === 'album' && (
             <>
-              <button style={{
+            <button style={{
                 aspectRatio: '1', borderRadius: 14,
                 background: 'rgba(9, 9, 11, 0.05)',
                 border: 'none', cursor: 'pointer',
@@ -781,7 +776,7 @@ function ImagesPanel() {
               }}>
               <path d="M7 10l5 5 5-5"/>
             </svg>
-          </button>
+            </button>
 
           {/* Popup — opens above the pill so it doesn't get clipped
               by the panel bottom edge. */}
@@ -827,7 +822,7 @@ function ImagesPanel() {
                     </button>
                   );
                 })}
-              </div>
+          </div>
             </>
           )}
         </div>
@@ -1418,6 +1413,259 @@ function ProfileSheet({ onClose, accent }) {
   );
 }
 
+// ──────────────────────────────────────────────
+// Credits sheet — opened from the Home header credits pill.
+// ──────────────────────────────────────────────
+function CreditsSheet({ onClose, accent = 'var(--color-schemes-primary)' }) {
+  const [selected, setSelected] = React.useState('lite');
+  const packs = [
+    {
+      id: 'lite', credits: '200', name: 'Lite pack',
+      oldPrice: 'C$21.25', price: 'C$ 17',
+      bg: 'linear-gradient(160deg, #5B5B62 0%, #2F2F36 100%)',
+      bolts: 1,
+    },
+    {
+      id: 'boost', credits: '560', name: 'Boost pack',
+      oldPrice: 'C$48.75', price: 'C$ 39',
+      bg: 'linear-gradient(160deg, #4E7BFF 0%, #2349DC 100%)',
+      bolts: 1,
+    },
+    {
+      id: 'creator', credits: '1,500', name: 'Creator pack',
+      oldPrice: 'C$123.75', price: 'C$ 99',
+      bg: 'linear-gradient(160deg, #F4D62A 0%, #BFA600 100%)',
+      bolts: 2,
+    },
+    {
+      id: 'ultimate', credits: '3,200', name: 'Ultimate pack',
+      oldPrice: 'C$161.25', price: 'C$ 129',
+      bg: 'linear-gradient(160deg, #A55DFF 0%, #6D25D7 100%)',
+      bolts: 3,
+    },
+  ];
+  const selectedPack = packs.find((p) => p.id === selected) || packs[0];
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 88 }}>
+      <div onClick={onClose} style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(20,12,40,0.22)',
+        backdropFilter: 'blur(2px)',
+        WebkitBackdropFilter: 'blur(2px)',
+        animation: 'fade 0.25s ease',
+      }} />
+      <div className="sheet-enter screen-fade phone-scroll" style={{
+        position: 'absolute',
+        left: 0, right: 0, bottom: 0,
+        height: 790,
+        maxHeight: '92%',
+        background: 'linear-gradient(170deg, #F7F2FD 0%, #FBFAFE 54%, #F4F4F5 100%)',
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        boxShadow: '0 -18px 60px rgba(20, 8, 60, 0.22), inset 0 1px 1px rgba(255,255,255,0.72)',
+        padding: '34px 20px 28px',
+        overflow: 'auto',
+      }}>
+        <button onClick={onClose} aria-label="Close credits" style={{
+          position: 'absolute', top: 20, left: 20,
+          width: 46, height: 46, borderRadius: 'var(--shape-radius-full)',
+          border: '0.5px solid rgba(255,255,255,0.7)',
+          background: 'rgba(255,255,255,0.72)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+          boxShadow: '0 4px 14px rgba(60,40,140,0.10), inset 0 1px 1px rgba(255,255,255,0.8)',
+          backdropFilter: 'blur(16px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+          zIndex: 2,
+        }}>
+          <Icon.Close size={16} color="var(--color-surface-on-surface)" stroke={2.2} />
+        </button>
+
+        <h1 style={{
+          margin: '0 0 32px',
+          textAlign: 'center',
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 22,
+          lineHeight: '28px',
+          fontWeight: 700,
+          color: 'var(--color-surface-on-surface)',
+          letterSpacing: -0.3,
+        }}>Credits</h1>
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={{
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 15,
+            lineHeight: '22px',
+            fontWeight: 700,
+            color: 'var(--color-surface-on-surface)',
+          }}>Select pack:</div>
+          <div style={{
+            marginTop: 4,
+            maxWidth: 320,
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 13.5,
+            lineHeight: '19px',
+            fontWeight: 500,
+            color: 'var(--color-surface-on-surface-variant)',
+          }}>Purchased credits are tied to your account and can be used across all platforms.</div>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 12,
+        }}>
+          {packs.map((pack) => {
+            const active = pack.id === selected;
+            return (
+              <button
+                key={pack.id}
+                onClick={() => setSelected(pack.id)}
+                style={{
+                  position: 'relative',
+                  padding: 0,
+                  border: active ? `2px solid ${accent}` : '0.5px solid rgba(0,0,0,0.04)',
+                  borderRadius: 'var(--shape-radius-20, 20px)',
+                  background: '#FFFFFF',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  boxShadow: active
+                    ? '0 8px 22px rgba(134,61,251,0.20)'
+                    : '0 2px 8px rgba(60,40,140,0.05)',
+                }}
+              >
+                <div style={{
+                  height: 154,
+                  background: pack.bg,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FFFFFF',
+                  fontFamily: '"Manrope", system-ui, sans-serif',
+                  fontSize: 31,
+                  lineHeight: '36px',
+                  fontWeight: 800,
+                  letterSpacing: -0.4,
+                }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <span aria-hidden="true" style={{
+                      fontSize: pack.bolts > 1 ? 20 : 26,
+                      opacity: pack.id === 'lite' ? 0.36 : 0.92,
+                    }}>{'⚡'.repeat(pack.bolts)}</span>
+                    {pack.credits}
+                  </span>
+                </div>
+                {active && (
+                  <div style={{
+                    position: 'absolute', top: 0, right: 0,
+                    width: 50, height: 50,
+                    background: accent,
+                    clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
+                  }}>
+                    <span style={{
+                      position: 'absolute', top: 8, right: 8,
+                      color: '#FFFFFF',
+                      fontSize: 17,
+                      lineHeight: 1,
+                    }}>✓</span>
+                  </div>
+                )}
+                <div style={{ padding: '12px 14px 14px' }}>
+                  <div style={{
+                    fontFamily: '"Manrope", system-ui, sans-serif',
+                    fontSize: 15,
+                    lineHeight: '22px',
+                    fontWeight: 700,
+                    color: 'var(--color-surface-on-surface)',
+                  }}>{pack.name}</div>
+                  <div style={{
+                    marginTop: 4,
+                    fontFamily: '"Manrope", system-ui, sans-serif',
+                    fontSize: 13,
+                    lineHeight: '18px',
+                    color: '#A1A1AA',
+                    textDecoration: 'line-through',
+                  }}>{pack.oldPrice}</div>
+                  <div style={{
+                    fontFamily: '"Manrope", system-ui, sans-serif',
+                    fontSize: 15,
+                    lineHeight: '22px',
+                    fontWeight: 600,
+                    color: 'var(--color-surface-on-surface-variant)',
+                  }}>{pack.price}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: 34,
+          marginTop: 18,
+          color: '#8B8B96',
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 13,
+          fontWeight: 600,
+        }}>
+          <button style={creditsUtilityBtn}>
+            <Icon.Settings size={15} color="#8B8B96" />
+            Upgrade
+          </button>
+          <button style={creditsUtilityBtn}>
+            <Icon.Refresh size={15} color="#8B8B96" />
+            Credit history
+          </button>
+        </div>
+
+        <button style={{
+          marginTop: 28,
+          width: '100%',
+          height: 54,
+          borderRadius: 'var(--shape-radius-full)',
+          border: 'none',
+          background: 'var(--color-surface-inverse-surface)',
+          color: 'var(--color-surface-inverse-on-surface)',
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 15,
+          lineHeight: '22px',
+          fontWeight: 600,
+          cursor: 'pointer',
+          boxShadow: '0 8px 22px rgba(0,0,0,0.16), inset 0 1px 1px rgba(255,255,255,0.18)',
+        }}>
+          Pay now
+        </button>
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: 8,
+          marginTop: 14,
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 11,
+          lineHeight: '16px',
+          color: '#71717A',
+        }}>
+          <span>Terms of Use</span>
+          <span>|</span>
+          <span>Privacy Policy</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const creditsUtilityBtn = {
+  border: 'none',
+  background: 'transparent',
+  padding: 0,
+  color: 'inherit',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  font: 'inherit',
+};
+
 // Avatar — placeholder mask figure
 function Avatar({ size = 38, radius }) {
   const r = radius != null ? radius : Math.round(size * 0.28);
@@ -1570,5 +1818,7 @@ function QueuePanel({ queue, accent, onCancel, onClose }) {
 window.ComposerSheet = ComposerSheet;
 window.ProjectsSheet = ProjectsSheet;
 window.ProfileSheet = ProfileSheet;
+window.CreditsSheet = CreditsSheet;
 window.QueuePanel = QueuePanel;
 window.Avatar = Avatar;
+window.FakeKeyboard = FakeKeyboard;

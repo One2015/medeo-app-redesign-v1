@@ -43,6 +43,20 @@ const Icon = {
       <path d="M6 6l12 12M18 6L6 18"/>
     </svg>
   ),
+  // Warning triangle — used on the "failed" notification badge and the
+  // failure toast. Centered exclamation glyph rendered as part of the
+  // triangle so it scales as one shape.
+  Warning: ({ size = 14, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M12 2.5c.78 0 1.5.43 1.88 1.13l9 16A2.13 2.13 0 0 1 21 22.5H3a2.13 2.13 0 0 1-1.88-2.87l9-16A2.15 2.15 0 0 1 12 2.5zM11 9v6h2V9h-2zm0 8v2h2v-2h-2z"/>
+    </svg>
+  ),
+  Retry: ({ size = 16, color = 'currentColor', stroke = 2 }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 3-6.7"/>
+      <path d="M3 4v5h5"/>
+    </svg>
+  ),
   Hamburger: ({ size = 22, color = 'currentColor', stroke = 2 }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round">
       <path d="M4 7h16M4 12h16M4 17h16"/>

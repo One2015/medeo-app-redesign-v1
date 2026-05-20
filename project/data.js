@@ -47,26 +47,46 @@ window.CARD_THEMES = {
 
 window.CHIPS = ['All', 'Manifest for me'];
 
-// Notifications: three "kinds" map to a small badge on the thumbnail —
-//   ready    → sparkle  (a user's creation finished rendering)
-//   announce → megaphone (an existing recipe is now live / promoted)
-//   new      → beaker    (a brand new recipe is here)
+// Notifications: five "kinds" map to a small badge on the thumbnail —
+//   ready    → sparkle    (a user's creation finished rendering)
+//   failed   → warning    (a creation failed to render; tap to retry)
+//   announce → megaphone  (an existing recipe is now live / promoted)
+//   new      → beaker     (a brand new recipe is here)
+//   invite   → gift       (a friend joined via the user's shared link;
+//                          they earned `amount` credits as a referral
+//                          reward — tap routes to Home where the live
+//                          credits balance lives in the header pill)
 // `cta` is the inline link text. `theme` references CARD_THEMES for the
-// thumbnail gradient since we don't have real imagery in the prototype yet.
+// thumbnail gradient. Optional `image` shows real artwork when available.
 window.NOTIFICATIONS = [
+  {
+    id: 'n_invite', kind: 'invite', unread: true, when: '5m ago',
+    title: 'You earned 50 credits',
+    body: 'A friend joined Medeo via your shared link.',
+    cta: 'Share to earn more',
+    amount: 50,
+    inviteeName: 'Alex',
+  },
   {
     id: 'n1', kind: 'ready', unread: true, when: 'now',
     title: 'Your creation is ready!',
     body: '"ASMR Jelly Brainrot" has been generated successfully.',
     cta: 'View creation',
-    theme: 'jelly',
+    theme: 'jelly', image: 'uploads/jelly.png',
+  },
+  {
+    id: 'n_fail', kind: 'failed', unread: true, when: '12m ago',
+    title: 'Generation failed',
+    body: '"Hearthstone Card" couldn\'t finish. Tap to retry with the same inputs.',
+    cta: 'Retry',
+    theme: 'fantasy', image: 'uploads/hearthstone.png',
   },
   {
     id: 'n2', kind: 'announce', unread: true, when: '2h ago',
     title: 'Retro Profile Printer is now live',
     body: 'Create nostalgic pixel art profile pictures in seconds.',
     cta: 'Try it now',
-    theme: 'retro',
+    theme: 'retro', image: 'uploads/retro.png',
   },
   {
     id: 'n3', kind: 'new', unread: true, when: '1d ago',
@@ -76,25 +96,25 @@ window.NOTIFICATIONS = [
     theme: 'cat',
   },
   {
-    id: 'n4', kind: 'announce', unread: true, when: '2d ago',
+    id: 'n4', kind: 'announce', unread: false, when: '2d ago',
     title: 'VHS Mood is now live',
     body: 'Add vintage VHS effects to your videos with one tap.',
     cta: 'Try it now',
     theme: 'fantasy',
   },
   {
-    id: 'n5', kind: 'new', unread: true, when: '3d ago',
+    id: 'n5', kind: 'new', unread: false, when: '3d ago',
     title: 'Mixtape Cover Maker is here',
     body: 'Design custom mixtape covers in seconds.',
     cta: 'Try it now',
-    theme: 'drive',
+    theme: 'drive', image: 'uploads/day-drive.png',
   },
   {
-    id: 'n6', kind: 'announce', unread: true, when: '4d ago',
+    id: 'n6', kind: 'announce', unread: false, when: '4d ago',
     title: 'Dream Cam is now live',
     body: 'Generate dreamy instant photos with soft film vibes.',
     cta: 'Try it now',
-    theme: 'cozy',
+    theme: 'cozy', image: 'uploads/cozy-living.png',
   },
 ];
 

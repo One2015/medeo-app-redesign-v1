@@ -150,39 +150,97 @@ function RecipeCard({ recipe, onClick, onLongPress }) {
 //   cards scroll under them, matching the Figma "fixed top, scrolling body"
 //   composition.
 // ──────────────────────────────────────────────
-function HeaderCreditsPill({ value = 333 }) {
+function HeaderCreditsPill({ value = 333, reward, onClick }) {
+  const [displayValue, setDisplayValue] = React.useState(value);
+  const [rolling, setRolling] = React.useState(false);
+  const prevRewardId = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!reward || prevRewardId.current === reward.id) {
+      setDisplayValue(value);
+      return;
+    }
+    prevRewardId.current = reward.id;
+    const amount = typeof reward.amount === 'number' ? reward.amount : 0;
+    const start = Math.max(0, value - amount);
+    const end = value;
+    let frame = 0;
+    const frames = 18;
+    setRolling(true);
+    setDisplayValue(start);
+
+    const id = window.setInterval(() => {
+      frame += 1;
+      const t = frame / frames;
+      // Ease-out count-up with a tiny slot-machine jitter in the first
+      // half, then settle exactly on the final balance.
+      const eased = 1 - Math.pow(1 - Math.min(1, t), 3);
+      const jitter = t < 0.55 ? Math.floor(Math.random() * 7) - 3 : 0;
+      const next = frame >= frames
+        ? end
+        : Math.min(end, Math.max(start, Math.round(start + (end - start) * eased + jitter)));
+      setDisplayValue(next);
+      if (frame >= frames) {
+        window.clearInterval(id);
+        setDisplayValue(end);
+        window.setTimeout(() => setRolling(false), 280);
+      }
+    }, 52);
+
+    return () => window.clearInterval(id);
+  }, [value, reward && reward.id, reward && reward.amount]);
+
   // Figma node I17430:15248;2215:20288. Pill button with frosted-glass
   // backdrop and a soft inner highlight — the "liquid glass" look.
   return (
-    <div style={{
+    <button onClick={onClick} aria-label="Open credits" style={{
       position: 'relative', display: 'inline-flex',
       borderRadius: 1000, overflow: 'hidden',
-      border: '1px solid rgba(255,255,255,0.16)',
+      border: rolling
+        ? '1px solid rgba(134,61,251,0.42)'
+        : '1px solid rgba(255,255,255,0.16)',
+      transform: rolling ? 'translateY(-1px) scale(1.035)' : 'translateY(0) scale(1)',
+      transition: 'transform 0.18s ease, border-color 0.18s ease',
+      background: 'transparent',
+      padding: 0,
+      cursor: 'pointer',
     }}>
       <div aria-hidden="true" style={{
         position: 'absolute', inset: 0,
-        background: 'rgba(29,27,32,0.12)',
+        background: rolling
+          ? 'rgba(134,61,251,0.14)'
+          : 'rgba(29,27,32,0.12)',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
         pointerEvents: 'none',
+        transition: 'background 0.18s ease',
       }} />
       <div style={{
         position: 'relative',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         gap: 8, padding: '12px 16px 12px 12px',
       }}>
-        <Icon.Bolt size={18} />
+        <Icon.Bolt size={18} color={rolling ? 'var(--color-schemes-primary)' : undefined} />
         <span style={{
           fontFamily: '"Manrope", system-ui, sans-serif',
           fontSize: 12, lineHeight: '17px', fontWeight: 600, letterSpacing: 0.2,
-          color: '#09090B',
-        }}>{value}</span>
+          color: rolling ? 'var(--color-schemes-primary)' : '#09090B',
+          fontVariantNumeric: 'tabular-nums',
+          minWidth: 32,
+          textAlign: 'right',
+          display: 'inline-block',
+          transform: rolling ? 'translateY(-1px)' : 'translateY(0)',
+          transition: 'transform 0.16s ease, color 0.18s ease',
+        }}>{displayValue.toLocaleString()}</span>
       </div>
       <div aria-hidden="true" style={{
         position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none',
-        boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.5), inset 0 5px 10px rgba(255,255,255,0.4)',
+        boxShadow: rolling
+          ? 'inset 0 1px 1px rgba(255,255,255,0.7), inset 0 5px 10px rgba(255,255,255,0.4), 0 0 18px rgba(134,61,251,0.26)'
+          : 'inset 0 1px 1px rgba(255,255,255,0.5), inset 0 5px 10px rgba(255,255,255,0.4)',
+        transition: 'box-shadow 0.18s ease',
       }} />
-    </div>
+    </button>
   );
 }
 
@@ -219,7 +277,7 @@ function HeaderProfileButton({ onClick }) {
   );
 }
 
-function HomeScreen({ onTapInput, onOpenProjects, onOpenProfile, onOpenRecipe, onLongPressRecipe, scrollRef, onScroll, activeChip, setActiveChip, accent }) {
+function HomeScreen({ onTapInput, onOpenProjects, onOpenProfile, onOpenCredits, onOpenRecipe, onLongPressRecipe, scrollRef, onScroll, activeChip, setActiveChip, accent, credits = 333, creditsReward }) {
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#F4F4F5' }}>
       {/* Decorative bg blob — Figma's BG node uses a 209px blurred image at
@@ -247,7 +305,7 @@ function HomeScreen({ onTapInput, onOpenProjects, onOpenProfile, onOpenRecipe, o
           }}>
             <h1 className="h-recipe" style={{ margin: 0 }}>Recipe</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <HeaderCreditsPill value={333} />
+              <HeaderCreditsPill value={credits} reward={creditsReward} onClick={onOpenCredits} />
               <HeaderProfileButton onClick={onOpenProfile} />
             </div>
           </div>
@@ -314,23 +372,40 @@ function HomeScreen({ onTapInput, onOpenProjects, onOpenProfile, onOpenRecipe, o
 // reads as a single visual system across notification types.
 function NotifBadge({ kind, accent }) {
   const glyph = kind === 'ready'    ? <Icon.Sparkle size={12} color="#fff" />
+              : kind === 'failed'   ? <Icon.Warning size={13} color="#fff" />
               : kind === 'announce' ? <Icon.Megaphone size={13} color="#fff" />
               : kind === 'new'      ? <Icon.Beaker size={13} color="#fff" />
+              : kind === 'invite'   ? <Icon.Gift size={13} color="#fff" stroke={2} />
               : null;
+  // Failed badges flip to a red wash to distinguish error states from
+  // happy-path completions / promos. Invite badges use a warm gold so
+  // the referral reward reads as a celebration, distinct from both the
+  // brand purple (creation events) and the red (errors).
+  const bg = kind === 'failed'
+    ? 'linear-gradient(160deg, #FF4D4F 0%, #C8261D 100%)'
+    : kind === 'invite'
+      ? 'linear-gradient(160deg, #F6B73B 0%, #E0892A 100%)'
+      : `linear-gradient(160deg, ${accent} 0%, ${accent}cc 100%)`;
+  const shadow = kind === 'failed'
+    ? '0 4px 10px rgba(200, 38, 29, 0.35), 0 0 0 2px #fff'
+    : kind === 'invite'
+      ? '0 4px 10px rgba(224, 137, 42, 0.40), 0 0 0 2px #fff'
+      : `0 4px 10px ${accent}55, 0 0 0 2px #fff`;
   return (
     <div style={{
       position: 'absolute', right: -4, bottom: -4,
       width: 26, height: 26, borderRadius: 999,
-      background: `linear-gradient(160deg, ${accent} 0%, ${accent}cc 100%)`,
+      background: bg,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: `0 4px 10px ${accent}55, 0 0 0 2px #fff`,
+      boxShadow: shadow,
     }}>
       {glyph}
     </div>
   );
 }
 
-function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView, onBack, accent }) {
+function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView, onOpenSharePage, onGoHome, onBack, accent, notifications }) {
+  const list = notifications || window.NOTIFICATIONS || [];
   // Build a recipe-shaped object for a "Try it now" notification.
   // We prefer an existing recipe sharing the same theme (so the detail
   // page gets real imagery + description), and fall back to a synthetic
@@ -338,11 +413,11 @@ function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView
   const recipeForNotif = React.useCallback((n) => {
     const recipes = window.RECIPES || [];
     const match = recipes.find((r) => r.theme === n.theme);
-    // 'ready' = the user's own finished creation. Use the source recipe
-    // unchanged so the chat / share-view show the real recipe title and
-    // prompt instead of the notification announcement copy ("Your creation
-    // is ready!", "ASMR Jelly Brainrot has been generated successfully.").
-    if (n.kind === 'ready' && match) {
+    // 'ready' / 'failed' = the user's own creation (success vs. error).
+    // Use the source recipe unchanged so the next screen shows the real
+    // recipe title and prompt instead of the notification announcement
+    // copy ("Your creation is ready!", "Generation failed", ...).
+    if ((n.kind === 'ready' || n.kind === 'failed') && match) {
       return match;
     }
     if (match) {
@@ -362,22 +437,41 @@ function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView
   // Route the tap based on what the notification represents:
   //   • kind === 'ready'  → "View creation" → the share-view page that
   //                          plays the finished video full-bleed.
+  //   • kind === 'failed' → tap card body → the recipe detail page with
+  //                          the config sheet auto-open so the user
+  //                          lands directly on the form to tweak inputs
+  //                          and retry (matches PRD § 7.1.2 matrix).
+  //                          The inline Retry link now routes to the
+  //                          same config sheet — no direct re-enqueue.
+  //   • kind === 'invite' → "Share to earn more" → open the share page
+  //                          directly so the reward loops back into
+  //                          another share action.
   //   • otherwise (new / announce) → "Try it now" → the recipe detail
-  //                          page so the user can fill the form & generate.
+  //                          page so the user can review and try.
   const handleNotifTap = React.useCallback((n) => {
+    if (n.kind === 'invite') {
+      if (onOpenSharePage) {
+        const recipe = (window.RECIPES || [])[0] || { title: 'Medeo', theme: 'jelly' };
+        onOpenSharePage(recipe);
+      } else if (onGoHome) {
+        onGoHome();
+      }
+      return;
+    }
     const recipe = recipeForNotif(n);
     if (n.kind === 'ready' && onOpenShareView) {
       onOpenShareView(recipe);
     } else if (onOpenRecipe) {
-      onOpenRecipe(recipe);
+      const opts = n.kind === 'failed' ? { autoOpenConfig: true } : undefined;
+      onOpenRecipe(recipe, opts);
     }
-  }, [onOpenRecipe, onOpenShareView, recipeForNotif]);
+  }, [onOpenRecipe, onOpenShareView, onOpenSharePage, onGoHome, recipeForNotif]);
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
-      {/* Glass back button — top-left, floats above the sticky header.
-          Renders only when `onBack` is provided so this screen still
-          works as a plain tab if needed. */}
+      {/* Glass back button — only rendered when this screen is reused
+          as a pushed secondary page. In the main tab bar this prop is
+          omitted, so Notification is a first-level destination. */}
       {onBack && <DetailBackButton onBack={onBack} />}
 
       {/* Sticky header — title + descriptive subtitle. Title shifts
@@ -403,8 +497,36 @@ function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView
         paddingTop: 130, paddingBottom: onBack ? 48 : 140,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 16px 0' }}>
-          {window.NOTIFICATIONS.map((n) => {
+          {list.map((n) => {
             const theme = window.CARD_THEMES[n.theme] || window.CARD_THEMES.jelly;
+            const isFailed = n.kind === 'failed';
+            const isInvite = n.kind === 'invite';
+            // Failed notifications render with a soft red wash so they
+            // read as an actionable error at-a-glance, not just another
+            // grey card. Invite (referral reward) notifications get a
+            // warm gold wash so the celebration reads instantly without
+            // needing to parse the title. Other kinds stay on plain white.
+            const cardBg = isFailed
+              ? 'linear-gradient(180deg, rgba(255, 235, 234, 0.92) 0%, #FFFFFF 70%)'
+              : isInvite
+                ? 'linear-gradient(180deg, rgba(255, 244, 220, 0.95) 0%, #FFFFFF 75%)'
+                : '#fff';
+            // All cards share the same inline text-link CTA pattern
+            // (no bordered button row). Color shifts by kind so the
+            // visual register matches the wash: failed → red (matches
+            // the soft red wash + warning badge), invite → warm amber
+            // (matches the gold wash), others → brand accent.
+            const ctaColor = isFailed
+              ? '#C8261D'
+              : (isInvite ? '#B25C0F' : accent);
+            // Retry link uses the same destination as tapping the failed
+            // card body: Recipe Detail + Config Sheet auto-open. We do
+            // not re-enqueue directly here, so there is no extra retry
+            // toast before the user reviews their inputs.
+            const onRetry = (e) => {
+              e.stopPropagation();
+              handleNotifTap(n);
+            };
             return (
               <div
                 key={n.id}
@@ -418,56 +540,104 @@ function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView
                   }
                 }}
                 style={{
-                position: 'relative', display: 'flex', gap: 14, padding: 12,
-                background: '#fff', borderRadius: 18,
+                position: 'relative', display: 'flex', flexDirection: 'column',
+                padding: 12,
+                background: cardBg, borderRadius: 18,
                 boxShadow: '0 0 0 0.5px rgba(0,0,0,0.04), 0 2px 8px rgba(60,40,140,0.05), 0 1px 2px rgba(60,40,140,0.04)',
                 cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none',
               }}>
-                {/* Thumbnail with badge */}
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{
-                    width: 76, height: 76, borderRadius: 14, overflow: 'hidden',
-                    background: theme.bg, position: 'relative',
-                  }}>
-                    {/* Subtle stripe overlay so empty thumbnails feel like art, not blank gradients */}
+                {/* Top row — thumbnail + content (the whole tap target
+                    for Detail / ShareView routing). */}
+                <div style={{ display: 'flex', gap: 14 }}>
+                  {/* Thumbnail with badge */}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div style={{
-                      position: 'absolute', inset: 0,
-                      backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 12px)',
-                    }} />
+                      width: 76, height: 76, borderRadius: 14, overflow: 'hidden',
+                      background: isInvite
+                        ? 'linear-gradient(160deg, #FFEFC9 0%, #F6D58D 100%)'
+                        : theme.bg,
+                      position: 'relative',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {/* Real artwork when available — falls back to the
+                          theme gradient + subtle stripe overlay so empty
+                          thumbnails still feel like art. Invite kind
+                          replaces the artwork with a centered "+N"
+                          credit chip so the reward amount is the hero. */}
+                      {isInvite ? (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          gap: 3, color: '#7A3F03',
+                          fontFamily: '"Manrope", system-ui, sans-serif',
+                          fontWeight: 800, fontSize: 22, letterSpacing: -0.3,
+                          fontFeatureSettings: '"zero" 1',
+                        }}>
+                          <span>+{n.amount || 50}</span>
+                          <Icon.Bolt size={18} />
+                        </div>
+                      ) : n.image ? (
+                        <img src={n.image} alt="" style={{
+                          width: '100%', height: '100%', objectFit: 'cover',
+                          display: 'block',
+                          filter: isFailed ? 'saturate(0.5) brightness(0.85)' : 'none',
+                        }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                      ) : (
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 12px)',
+                        }} />
+                      )}
+                    </div>
+                    <NotifBadge kind={n.kind} accent={accent} />
                   </div>
-                  <NotifBadge kind={n.kind} accent={accent} />
-                </div>
 
-                {/* Content */}
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                    <div style={{
-                      fontSize: 15.5, fontWeight: 700, color: '#0A0A0A', letterSpacing: -0.2,
-                      lineHeight: 1.25, flex: 1,
-                    }}>{n.title}</div>
-                    <div style={{ fontSize: 12, color: '#9BA0AB', fontWeight: 500, whiteSpace: 'nowrap' }}>{n.when}</div>
-                  </div>
-                  <div style={{
-                    fontSize: 13.5, color: '#5C5C66', lineHeight: 1.4,
-                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                  }}>{n.body}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 2 }}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleNotifTap(n); }}
-                      style={{
-                        padding: 0, border: 'none', background: 'transparent',
-                        fontSize: 13.5, fontWeight: 600, color: accent,
-                        display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer',
-                      }}
-                    >
-                      {n.cta}
-                      <span style={{ fontWeight: 500 }}>→</span>
-                    </button>
-                    {n.unread && (
+                  {/* Content — title / body + inline CTA hyperlink.
+                      All kinds share the same shape: a left-aligned
+                      text link (kind-tinted color) and a trailing
+                      unread dot on the right. Failed kinds prepend a
+                      ↺ retry glyph + invoke onRetry (re-enqueue);
+                      other kinds use a trailing → arrow + invoke
+                      handleNotifTap (navigate). */}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                       <div style={{
-                        width: 7, height: 7, borderRadius: 999, background: accent, flexShrink: 0,
-                      }} />
-                    )}
+                        fontSize: 15.5, fontWeight: 700, color: '#0A0A0A', letterSpacing: -0.2,
+                        lineHeight: 1.25, flex: 1,
+                      }}>{n.title}</div>
+                      <div style={{ fontSize: 12, color: '#9BA0AB', fontWeight: 500, whiteSpace: 'nowrap' }}>{n.when}</div>
+                    </div>
+                    <div style={{
+                      fontSize: 13.5, color: '#5C5C66', lineHeight: 1.4,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}>{n.body}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 2 }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isFailed) {
+                            onRetry(e);
+                          } else {
+                            handleNotifTap(n);
+                          }
+                        }}
+                        aria-label={isFailed ? 'Retry generation' : undefined}
+                        style={{
+                          padding: 0, border: 'none', background: 'transparent',
+                          fontSize: 13.5, fontWeight: 600, color: ctaColor,
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {isFailed && <Icon.Retry size={13} color={ctaColor} />}
+                        {n.cta}
+                        {!isFailed && <span style={{ fontWeight: 500 }}>→</span>}
+                      </button>
+                      {n.unread && (
+                        <div style={{
+                          width: 7, height: 7, borderRadius: 999, background: accent, flexShrink: 0,
+                        }} />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -487,13 +657,15 @@ function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView
 // slot. No backdrop / sheet chrome and no upgrade banner or profile
 // row (those live exclusively on the profile page now).
 // ──────────────────────────────────────────────
-function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onBack, accent }) {
+function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onOpenShareView, onBack, accent, queue, completedCreations }) {
   const projects = window.PROJECTS || [];
+  const liveQueue = Array.isArray(queue) ? queue : [];
+  const liveCompleted = Array.isArray(completedCreations) ? completedCreations : [];
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
-      {/* Glass back button — top-left, floats above the sticky header.
-          Renders only when `onBack` is provided so the screen still
-          works as a plain tab if needed. */}
+      {/* Glass back button — only rendered when the screen is reused
+          as a pushed secondary page. In the main tab bar this prop is
+          omitted, so Creation is a first-level destination. */}
       {onBack && <DetailBackButton onBack={onBack} />}
 
       {/* Sticky header — title only. Title shifts right when the back
@@ -506,9 +678,9 @@ function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onBack, accent }) 
         WebkitBackdropFilter: 'blur(14px) saturate(140%)',
       }}>
         <div style={{ padding: onBack ? '0 20px 0 68px' : '0 20px' }}>
-          <h1 className="h-recipe" style={{ margin: 0 }}>Projects</h1>
+          <h1 className="h-recipe" style={{ margin: 0 }}>Creation</h1>
           <div style={{ fontSize: 13.5, color: '#5C5C66', marginTop: 6, fontWeight: 400, lineHeight: 1.35 }}>
-            Pick up where you left off.
+            Your generations and saved drafts.
           </div>
         </div>
       </div>
@@ -518,55 +690,280 @@ function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onBack, accent }) 
         position: 'absolute', inset: 0, overflow: 'auto',
         paddingTop: 124, paddingBottom: onBack ? 48 : 140,
       }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 16px 0' }}>
-          {projects.map((p) => {
-            const theme = window.CARD_THEMES[p.theme] || window.CARD_THEMES.jelly;
-            return (
-              <div
-                key={p.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => onOpenProject && onOpenProject(p)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onOpenProject && onOpenProject(p);
+        {/* Generating section — only renders when there are in-flight
+            jobs. Cards show progress + ETA. Tapping enters the chat /
+            log view (existing behaviour) so the user can watch loading
+            state in the conversation surface. */}
+        {liveQueue.length > 0 && (
+          <div style={{ padding: '4px 16px 0' }}>
+            <ProjectsSectionLabel text="Generating" count={liveQueue.length} accent={accent} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {liveQueue.map((q) => (
+                <GeneratingRow
+                  key={q.id}
+                  item={q}
+                  accent={accent}
+                  onTap={() => onOpenProject && onOpenProject({
+                    id: q.id, title: q.title, theme: q.theme, image: q.image,
+                    __isGenerating: true,
+                    __userPrompt: q.title,
+                  })}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent — every creation card opens the conversation/log page.
+            This keeps Creation as the user's work history surface rather
+            than a public share/result viewer. */}
+        <div style={{ padding: liveQueue.length ? '18px 16px 0' : '4px 16px 0' }}>
+          {(liveCompleted.length + projects.length) > 0 && (
+            <ProjectsSectionLabel text="Recent" />
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {liveCompleted.map((c) => (
+              <CompletedRow
+                key={c.id}
+                item={c}
+                onTap={() => {
+                  if (onOpenProject) {
+                    onOpenProject({
+                      ...(c.recipe || c),
+                      id: c.id,
+                      title: c.title,
+                      image: c.image,
+                      theme: c.theme,
+                      __userPrompt: c.title,
+                    });
                   }
                 }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 14, padding: 12,
-                  background: '#fff', borderRadius: 18,
-                  boxShadow: '0 0 0 0.5px rgba(0,0,0,0.04), 0 2px 8px rgba(60,40,140,0.05), 0 1px 2px rgba(60,40,140,0.04)',
-                  cursor: 'pointer',
-                }}>
-                <div style={{
-                  width: 64, height: 64, borderRadius: 14, overflow: 'hidden',
-                  background: theme.bg, position: 'relative', flexShrink: 0,
-                }}>
+              />
+            ))}
+            {projects.map((p) => {
+              const theme = window.CARD_THEMES[p.theme] || window.CARD_THEMES.jelly;
+              return (
+                <div
+                  key={p.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onOpenProject && onOpenProject(p)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onOpenProject && onOpenProject(p);
+                    }
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14, padding: 12,
+                    background: '#fff', borderRadius: 18,
+                    boxShadow: '0 0 0 0.5px rgba(0,0,0,0.04), 0 2px 8px rgba(60,40,140,0.05), 0 1px 2px rgba(60,40,140,0.04)',
+                    cursor: 'pointer',
+                  }}>
                   <div style={{
-                    position: 'absolute', inset: 0,
-                    backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 12px)',
-                  }} />
+                    width: 64, height: 64, borderRadius: 14, overflow: 'hidden',
+                    background: theme.bg, position: 'relative', flexShrink: 0,
+                  }}>
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 12px)',
+                    }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 15.5, fontWeight: 600, color: '#0A0A0A', letterSpacing: -0.1,
+                      lineHeight: 1.3,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>{p.title}</div>
+                    <div style={{
+                      fontSize: 12.5, color: '#9BA0AB', marginTop: 4, fontWeight: 500,
+                    }}>{p.when}</div>
+                  </div>
+                  <Icon.Chevron size={16} color="#9BA0AB" />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: 15.5, fontWeight: 600, color: '#0A0A0A', letterSpacing: -0.1,
-                    lineHeight: 1.3,
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  }}>{p.title}</div>
-                  <div style={{
-                    fontSize: 12.5, color: '#9BA0AB', marginTop: 4, fontWeight: 500,
-                  }}>{p.when}</div>
-                </div>
-                <Icon.Chevron size={16} color="#9BA0AB" />
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
           <div style={{ textAlign: 'center', padding: '20px 0 4px', color: '#9BA0AB', fontSize: 13 }}>
             That's everything you've made.
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Section label used inside ProjectsScreen — small caps + optional count
+// pill in accent. Sits flush-left of the card list.
+function ProjectsSectionLabel({ text, count, accent }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '2px 4px 10px',
+    }}>
+      <span style={{
+        fontFamily: '"Manrope", system-ui, sans-serif',
+        fontSize: 12, fontWeight: 700, letterSpacing: 0.6,
+        color: '#5C5C66', textTransform: 'uppercase',
+      }}>{text}</span>
+      {count != null && (
+        <span style={{
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 11, fontWeight: 700, letterSpacing: 0,
+          color: '#fff',
+          background: accent || '#7C5BFD',
+          padding: '1px 7px', borderRadius: 999,
+          lineHeight: 1.5,
+        }}>{count}</span>
+      )}
+    </div>
+  );
+}
+
+// Card row for an in-flight generation job. Thumbnail + name + ETA +
+// thin progress bar. Tapping enters the chat / log so the user can
+// watch the loading state in the conversation (per feedback: "对话里
+// 看到 loading 态"). Not clickable as a "play" target — there's no
+// finished media yet.
+function GeneratingRow({ item, accent, onTap }) {
+  const theme = window.CARD_THEMES[item.theme] || window.CARD_THEMES.jelly;
+  const pct = Math.round((item.progress || 0) * 100);
+  // Crude ETA: assume ~30s total to mirror the queue popover copy.
+  const remaining = Math.max(1, Math.round(30 * (1 - (item.progress || 0))));
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onTap}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap && onTap(); }
+      }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14, padding: 12,
+        background: '#fff', borderRadius: 18,
+        boxShadow: '0 0 0 0.5px rgba(0,0,0,0.04), 0 2px 8px rgba(60,40,140,0.05), 0 1px 2px rgba(60,40,140,0.04)',
+        cursor: 'pointer',
+      }}>
+      {/* Thumbnail — dimmed + pulsing while in flight, with a small
+          dot-spinner badge at center to read as "rendering". */}
+      <div style={{
+        width: 64, height: 64, borderRadius: 14, overflow: 'hidden',
+        background: theme.bg, position: 'relative', flexShrink: 0,
+      }}>
+        {item.image ? (
+          <img src={item.image} alt="" style={{
+            width: '100%', height: '100%', objectFit: 'cover',
+            display: 'block', filter: 'saturate(0.7) brightness(0.7)',
+          }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+        ) : (
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 12px)',
+          }} />
+        )}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'rgba(0,0,0,0.30)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div className="proj-spinner" style={{
+            width: 24, height: 24, borderRadius: 999,
+            border: '2px solid rgba(255,255,255,0.35)',
+            borderTopColor: '#fff',
+          }} />
+        </div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 15.5, fontWeight: 600, color: '#0A0A0A', letterSpacing: -0.1,
+          lineHeight: 1.3,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{item.title}</div>
+        <div style={{
+          fontSize: 12.5, color: '#9BA0AB', marginTop: 4, fontWeight: 500,
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontVariantNumeric: 'tabular-nums',
+        }}>{pct}% · ~{remaining}s left</div>
+        {/* Thin progress track */}
+        <div style={{
+          height: 3, borderRadius: 999, marginTop: 8,
+          background: 'rgba(9, 9, 11, 0.06)', overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%', width: `${pct}%`,
+            background: accent || '#7C5BFD', borderRadius: 999,
+            transition: 'width 0.3s linear',
+          }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Card row for a completed creation. Same shape as a project row, but
+// the thumbnail wears a small white "play" glass disc so the affordance
+// reads as "tap to watch". Tap → ShareView.
+function CompletedRow({ item, onTap }) {
+  const theme = window.CARD_THEMES[item.theme] || window.CARD_THEMES.jelly;
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onTap}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap && onTap(); }
+      }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14, padding: 12,
+        background: '#fff', borderRadius: 18,
+        boxShadow: '0 0 0 0.5px rgba(0,0,0,0.04), 0 2px 8px rgba(60,40,140,0.05), 0 1px 2px rgba(60,40,140,0.04)',
+        cursor: 'pointer',
+      }}>
+      <div style={{
+        width: 64, height: 64, borderRadius: 14, overflow: 'hidden',
+        background: theme.bg, position: 'relative', flexShrink: 0,
+      }}>
+        {item.image ? (
+          <img src={item.image} alt="" style={{
+            width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+          }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+        ) : (
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 12px)',
+          }} />
+        )}
+        {/* Play glass disc */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            width: 26, height: 26, borderRadius: 999,
+            background: 'rgba(255,255,255,0.85)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            paddingLeft: 2,
+          }}>
+            <svg width="10" height="11" viewBox="0 0 10 11" aria-hidden="true">
+              <polygon points="1,0.5 9,5.5 1,10.5" fill="#0A0A0A" />
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 15.5, fontWeight: 600, color: '#0A0A0A', letterSpacing: -0.1,
+          lineHeight: 1.3,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{item.title}</div>
+        <div style={{
+          fontSize: 12.5, color: '#9BA0AB', marginTop: 4, fontWeight: 500,
+        }}>{item.when || 'Just now'}</div>
+      </div>
+      <Icon.Chevron size={16} color="#9BA0AB" />
     </div>
   );
 }
@@ -755,694 +1152,605 @@ function renderDescriptionWithFile(text, file) {
   return out;
 }
 
-// ── Detail screen (unified, draggable sheet) ───────────────────
-// Implements Figma flow `recipe` (default) → `OnboardingDialog/L`
-// pushed-up → fully expanded with completed form. The video frame
-// continuously transforms from a full-bleed banner (preview) into a
-// small portrait card (205×365) centered behind the sheet (expanded),
-// matching the Pinterest/Instagram-style draggable detail pattern
-// annotated in the source designs.
+// ── Recipe preview video ─────────────────────────────────────────
+// Placeholder media component used by the detail page hero and by
+// the config sheet when it's been expanded to full-page mode.
 //
-// Sheet snap stops:
-//   • PREVIEW  — sheet top sits just below the video, description +
-//     start of Upload visible. CTA: "Try this recipe" (enabled, taps
-//     expand the sheet).
-//   • EXPANDED — sheet top sits just below the iOS status bar, video
-//     becomes a thumb card behind the sheet. CTA flips:
-//       form empty → "Try this recipe" (disabled)
-//       form ready → "Let's cook it" (enabled)
-//
-// Drag is attached to the video frame *and* the drag handle. Anything
-// inside the sheet that should accept taps (buttons, textarea) wears
-// `data-no-drag` so a drag never steals their interaction.
-function RecipeDetailScreen({ recipe, onBack, onOpenShareView }) {
+// Mirrors RecipeCard's gradient + mono label aesthetic so the
+// "video" reads as a continuation of the home browse card — the
+// card has "opened up" into a preview. Bottom overlay carries
+// fake player chrome (time pill / scrubber / mute) for that
+// "this is a video" cue.
+function RecipePreviewVideo({ recipe, height = 480, onBack }) {
   const theme = window.CARD_THEMES[recipe.theme] || window.CARD_THEMES.jelly;
   const [imageFailed, setImageFailed] = React.useState(false);
-  const hasImage = recipe.image && !imageFailed;
-
-  // ── Layout constants (Figma frame: 393×852) ────────────────────
-  const PHONE_W = 393;
-  const STATUS_H = 62;     // iOS status bar height in this prototype
-  const ACTIONS_H = 96;    // sticky bottom bar height incl. safe area
-
-  // Video stops: full-bleed at preview → 205×365 centered card at
-  // expanded (matches Figma `RecipeCover` position top:70).
-  const V0_W = 393, V0_H = 508, V0_LEFT = 0, V0_TOP = 0;
-  const V1_W = 205, V1_H = 365, V1_TOP = 70;
-  const V1_LEFT = (PHONE_W - V1_W) / 2;
-
-  // Sheet top stops. Preview = right under the video. Expanded =
-  // right under the status bar (sheet covers the cover card).
-  const SHEET_TOP_MAX = V0_H;       // 508 — preview
-  const SHEET_TOP_MIN = STATUS_H;   // 62  — expanded
-
-  // ── State ─────────────────────────────────────────────────────
-  const [sheetTop, setSheetTop] = React.useState(SHEET_TOP_MAX);
-  const [dragging, setDragging] = React.useState(false);
-  const dragRef = React.useRef(null);
-
-  // Cook-form state — the upload/describe form lives directly inside
-  // the detail sheet (Figma 20635:14259), so we just need to track the
-  // two field values here. Persisted across recipe re-opens by the
-  // effect below.
-  const [shareOpen, setShareOpen] = React.useState(false);
-  // Conversation page — the primary destination after "Try this recipe"
-  // is tapped with a filled form. Renders ConversationScreen full-screen.
-  const [chatOpen, setChatOpen] = React.useState(false);
-  const [text, setText] = React.useState('');
-  const [uploaded, setUploaded] = React.useState(false);
-  // Video play/pause — tapping the video toggles. Defaults to playing
-  // so the preview reads as live; pausing surfaces a center play icon
-  // overlay so the user has a clear affordance to resume.
   const [isPlaying, setIsPlaying] = React.useState(true);
+  const [progress, setProgress] = React.useState(6);
+  const hasImage = recipe.image && !imageFailed;
+  const duration = 16;
+  const currentSecond = Math.max(1, Math.min(duration - 1, Math.round((progress / 100) * duration)));
 
-  // Toast — shown when the user taps "Try this recipe" without finishing
-  // the upload/describe form. Auto-dismisses after ~2.4s. Stored as
-  // { id, message } so consecutive triggers re-fire the show animation.
-  const [toast, setToast] = React.useState(null);
   React.useEffect(() => {
-    if (!toast) return;
-    const id = window.setTimeout(() => setToast(null), 2400);
-    return () => window.clearTimeout(id);
-  }, [toast]);
-
-  // Reset to preview every time a new recipe is opened.
-  React.useEffect(() => {
-    setSheetTop(SHEET_TOP_MAX);
-    setShareOpen(false);
-    setChatOpen(false);
-    setText('');
-    setUploaded(false);
-    setToast(null);
-  }, [recipe && recipe.id]);
-
-  // 0 = preview, 1 = fully expanded. Drives every interpolated style.
-  const progress = Math.max(0, Math.min(1,
-    (SHEET_TOP_MAX - sheetTop) / (SHEET_TOP_MAX - SHEET_TOP_MIN)));
-  const isExpanded = progress > 0.5;
-
-  // Linear interpolation helper (a → b based on progress).
-  const lerp = (a, b) => a + (b - a) * progress;
-
-  // Interpolated video frame metrics — read once per render.
-  const videoTop = lerp(V0_TOP, V1_TOP);
-  const videoLeft = lerp(V0_LEFT, V1_LEFT);
-  const videoW = lerp(V0_W, V1_W);
-  const videoH = lerp(V0_H, V1_H);
-  const videoRadius = lerp(0, 16);
-  const sheetRadius = lerp(0, 24);
-
-  // ── Drag ──────────────────────────────────────────────────────
-  const beginDrag = (clientY) => {
-    dragRef.current = { startY: clientY, startTop: sheetTop, maxDy: 0 };
-    setDragging(true);
-  };
-  const moveDrag = (clientY) => {
-    if (!dragRef.current) return;
-    const dy = clientY - dragRef.current.startY;
-    // Track the largest absolute movement so we can distinguish a
-    // tap from a tiny drag on pointer up.
-    dragRef.current.maxDy = Math.max(dragRef.current.maxDy, Math.abs(dy));
-    const next = Math.max(SHEET_TOP_MIN,
-      Math.min(SHEET_TOP_MAX, dragRef.current.startTop + dy));
-    setSheetTop(next);
-  };
-  // Threshold under which a release counts as a tap rather than a drag.
-  const TAP_SLOP = 6;
-  const endDrag = (onTap) => {
-    if (!dragRef.current) return false;
-    const wasTap = dragRef.current.maxDy < TAP_SLOP;
-    if (!wasTap) {
-      // Real drag — snap to the nearest stop.
-      setSheetTop((t) => {
-        const mid = (SHEET_TOP_MIN + SHEET_TOP_MAX) / 2;
-        return t < mid ? SHEET_TOP_MIN : SHEET_TOP_MAX;
-      });
-    }
-    dragRef.current = null;
-    setDragging(false);
-    if (wasTap && typeof onTap === 'function') onTap();
-    return wasTap;
-  };
-
-  // Factory for the unified pointer (mouse + touch) handlers. Reused
-  // on the video frame and the drag handle row. Skips drag when the
-  // event originates from a `[data-no-drag]` element. The optional
-  // `onTap` fires when the user releases without significant movement
-  // — used on the video frame to dismiss the detail page with a tap.
-  const makePointerHandlers = (onTap) => ({
-    onPointerDown: (e) => {
-      if (e.target.closest && e.target.closest('[data-no-drag]')) return;
-      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
-      beginDrag(e.clientY);
-    },
-    onPointerMove: (e) => {
-      if (!dragRef.current) return;
-      e.preventDefault();
-      moveDrag(e.clientY);
-    },
-    onPointerUp: (e) => {
-      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
-      endDrag(onTap);
-    },
-    onPointerCancel: (e) => {
-      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
-      endDrag();
-    },
-  });
-
-  // Video tap toggles play/pause (NOT close — use the back button at
-  // top-left for that). Only fires while we're still in the preview
-  // state; once the sheet has been pulled up, taps fall through to
-  // drag-end so the user can keep manipulating the sheet.
-  const pointerHandlers = makePointerHandlers();
-  const videoPointerHandlers = makePointerHandlers(
-    progress < 0.05 ? () => setIsPlaying((p) => !p) : null
-  );
-
-  // Snap easing — only kicks in on release, instant follow during drag.
-  const snapTransition = dragging
-    ? 'none'
-    : [
-        'top 0.34s cubic-bezier(0.32, 0.72, 0, 1)',
-        'left 0.34s cubic-bezier(0.32, 0.72, 0, 1)',
-        'width 0.34s cubic-bezier(0.32, 0.72, 0, 1)',
-        'height 0.34s cubic-bezier(0.32, 0.72, 0, 1)',
-        'border-radius 0.34s cubic-bezier(0.32, 0.72, 0, 1)',
-        'box-shadow 0.34s cubic-bezier(0.32, 0.72, 0, 1)',
-        'opacity 0.34s cubic-bezier(0.32, 0.72, 0, 1)',
-      ].join(', ');
-
-  // ── CTA ───────────────────────────────────────────────────────
-  // The cook form lives directly inside the detail sheet's scroll body
-  // (per Figma 20635:14259). CTA always reads "Try this recipe" and is
-  // always visually enabled so the recipe feels inviting on entry. If
-  // the user taps without completing the required fields, a toast
-  // surfaces the missing piece instead of silently doing nothing.
-  const ready = uploaded && text.trim().length > 0;
-  const ctaLabel = 'Try this recipe';
-  const ctaEnabled = true;
-  const onCta = () => {
-    if (!ready) {
-      // Tell the user exactly which field is missing so the toast
-      // doubles as a hint, not just a complaint.
-      let msg;
-      if (!uploaded && !text.trim()) {
-        msg = 'Add an image and describe your idea to start cooking.';
-      } else if (!uploaded) {
-        msg = 'Add an image to start cooking.';
-      } else {
-        msg = 'Describe your idea to start cooking.';
-      }
-      setToast({ id: Date.now(), message: msg });
-      return;
-    }
-    // Push the job to the global generation queue so the "+" FAB shows
-    // progress. `window.__enqueueGeneration` is exposed by App.jsx;
-    // guarded so this remains a no-op if missing.
-    if (typeof window.__enqueueGeneration === 'function') {
-      window.__enqueueGeneration(recipe);
-    }
-    setChatOpen(true);
-  };
+    if (!isPlaying) return;
+    const id = window.setInterval(() => {
+      setProgress((p) => (p >= 92 ? 6 : p + 0.7));
+    }, 260);
+    return () => window.clearInterval(id);
+  }, [isPlaying]);
 
   return (
-    <div className="screen-fade" style={{
-      position: 'absolute', inset: 0, zIndex: 80,
-      background: '#F4F4F5',
-      overflow: 'hidden',
-      touchAction: 'none',
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={isPlaying ? 'Pause preview video' : 'Play preview video'}
+      onClick={() => setIsPlaying((v) => !v)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setIsPlaying((v) => !v);
+        }
+      }}
+      style={{
+      position: 'relative', width: '100%', height, overflow: 'hidden',
+      background: hasImage ? '#000' : theme.bg, flexShrink: 0,
+      cursor: 'pointer',
     }}>
-      {/* Blurred backdrop — fades in as the sheet rises, picks up the
-          recipe's tint behind the floating card (Figma `BG` blob). */}
-      <div aria-hidden="true" style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 252,
-        background: 'radial-gradient(120% 100% at 30% 30%, rgba(220, 200, 255, 0.55) 0%, rgba(255, 220, 235, 0.40) 35%, rgba(244, 244, 245, 0) 75%)',
-        filter: 'blur(40px)',
-        opacity: progress,
-        pointerEvents: 'none',
-        transition: dragging ? 'none' : 'opacity 0.34s ease',
-      }} />
-
-      {/* Video frame — full-bleed at preview, transforms into a
-          centered portrait card behind the sheet at expanded.
-          Tap (release without drag) closes the detail page in
-          preview mode; otherwise drag-to-expand the sheet. */}
-      <div
-        {...videoPointerHandlers}
-        style={{
-          position: 'absolute',
-          top: videoTop, left: videoLeft,
-          width: videoW, height: videoH,
-          background: hasImage ? '#000' : theme.bg,
-          borderRadius: videoRadius,
-          overflow: 'hidden',
-          touchAction: 'none',
-          cursor: progress < 0.05 ? 'pointer' : (dragging ? 'grabbing' : 'grab'),
-          transition: snapTransition,
-          boxShadow: progress > 0.05
-            ? `0 ${lerp(0, 24)}px ${lerp(0, 60)}px rgba(60, 40, 140, ${(0.18 * progress).toFixed(3)})`
-            : 'none',
-        }}
-      >
-        {hasImage ? (
-          <img
-            src={recipe.image}
-            alt={recipe.title}
-            onError={() => setImageFailed(true)}
-            draggable={false}
-            style={{
-              width: '100%', height: '100%',
-              objectFit: 'cover', objectPosition: 'center',
-              display: 'block', pointerEvents: 'none',
-            }}
-          />
-        ) : (
+      {hasImage ? (
+        <img
+          src={recipe.image}
+          alt=""
+          draggable={false}
+          onError={() => setImageFailed(true)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        <>
+          {/* Diagonal stripe texture — same trick the home cards use
+              to keep flat gradients from reading as empty. */}
+          <div aria-hidden="true" style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 14px)',
+          }} />
+          {/* Centered mono label — the "fake video" placeholder cue
+              from the home browse surface. */}
           <div style={{
             position: 'absolute', inset: 0, display: 'flex',
             alignItems: 'center', justifyContent: 'center',
             fontFamily: 'ui-monospace, Menlo, monospace',
-            fontSize: 12, color: 'rgba(0,0,0,0.4)',
-            textAlign: 'center', padding: 16,
-            pointerEvents: 'none',
+            fontSize: 13, letterSpacing: 0.4,
+            color: 'rgba(0,0,0,0.30)',
+            mixBlendMode: 'multiply',
           }}>
             {theme.label}
           </div>
-        )}
+        </>
+      )}
 
-        {/* Edge gradients (top + bottom) — only useful at preview when
-            the video fills the screen edge to edge. Fade out as it
-            shrinks into a card so they don't add weight to the thumb. */}
-        <div aria-hidden="true" style={{
-          position: 'absolute', left: 0, right: 0, top: 0, height: 110,
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 100%)',
-          pointerEvents: 'none',
-          opacity: 1 - progress,
-        }} />
-        <div aria-hidden="true" style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0, height: 90,
-          background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 100%)',
-          pointerEvents: 'none',
-          opacity: Math.max(0, 1 - progress * 2),
-        }} />
+      {/* Glass back button — overlays on the video, top-left. Only
+          rendered when an onBack handler is provided (i.e. when the
+          video is the page itself; not when embedded inside a sheet
+          that already has its own back affordance). */}
+      {onBack && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onBack();
+          }}
+          aria-label="Back"
+          style={{
+            position: 'absolute', top: 58, left: 16, zIndex: 2,
+            width: 40, height: 40, borderRadius: 999,
+            border: '0.5px solid rgba(255,255,255,0.5)',
+            background: 'rgba(255,255,255,0.4)',
+            backdropFilter: 'blur(18px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', padding: 0,
+          }}
+        >
+          <Icon.Back size={18} color="#1A1A22" stroke={2} />
+        </button>
+      )}
 
-        {/* Video controls — fade out twice as fast as gradients so they
-            disappear before the frame gets small enough to crowd them. */}
-        <div style={{
-          opacity: Math.max(0, 1 - progress * 2),
-          pointerEvents: progress > 0.4 ? 'none' : 'auto',
-        }}>
-          <VideoControlsOverlay />
-        </div>
-
-        {/* Play / pause overlay — visible when paused at the preview
-            stage. Tap-through (pointerEvents: none) so the gesture is
-            handled by the video frame, not this badge. */}
+      {/* Pause state affordance — only visible when paused, so the
+          video still feels calm while playing. */}
+      {!isPlaying && (
         <div aria-hidden="true" style={{
           position: 'absolute', inset: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(9,9,11,0.06)',
           pointerEvents: 'none',
-          opacity: !isPlaying && progress < 0.4 ? 1 : 0,
-          transition: 'opacity 0.18s ease',
         }}>
           <div style={{
-            width: 72, height: 72, borderRadius: 999,
-            background: 'rgba(0, 0, 0, 0.42)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.30), inset 0 1px 1px rgba(255,255,255,0.18)',
+            width: 64, height: 64, borderRadius: 999,
+            background: 'rgba(255,255,255,0.72)',
+            backdropFilter: 'blur(16px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+            boxShadow: '0 12px 36px rgba(20,20,28,0.16), inset 0 1px 1px rgba(255,255,255,0.8)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#FFFFFF',
-            paddingLeft: 4, // optical nudge so the play triangle reads centered
           }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
+            <Icon.Play2 size={22} color="#1A1A22" />
           </div>
-        </div>
-      </div>
-
-      {/* Back button — Figma IconButton (50×50, glass, inset highlight).
-          Icon color flips white→dark as the sheet rises past it. */}
-      <button
-        onClick={onBack}
-        aria-label="Back"
-        data-no-drag
-        style={{
-          position: 'absolute', top: 78, left: 20, zIndex: 10,
-          width: 50, height: 50, borderRadius: 999,
-          border: 'none',
-          background: 'rgba(244, 244, 245, 0.16)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2), inset 0 5px 10px rgba(255,255,255,0.15)',
-          color: progress > 0.5 ? '#1A1A22' : '#FFFFFF',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', padding: 0,
-          transition: 'color 0.24s ease',
-        }}
-      >
-        <Icon.Back size={18} stroke={2.2} />
-      </button>
-
-      {/* Bottom sheet — FLAT in preview, lifts into a 24px-rounded
-          sheet as `progress` rises. Background matches Figma
-          `surface-bright` (#FAFAFA). */}
-      <div style={{
-        position: 'absolute',
-        top: sheetTop, left: 0, right: 0, bottom: 0,
-        background: '#FAFAFA',
-        borderTopLeftRadius: sheetRadius,
-        borderTopRightRadius: sheetRadius,
-        boxShadow: progress > 0.02
-          ? `0 -4px 32px rgba(0, 0, 0, ${(0.04 * progress).toFixed(3)}), 0 -10px 32px rgba(0, 0, 0, ${(0.01 * progress).toFixed(3)})`
-          : 'none',
-        overflow: 'hidden',
-        transition: snapTransition,
-      }}>
-        {/* Drag handle row — 48×4 pill per Figma `dragIndicator`.
-            Fades in with progress so the flat preview stays clean. */}
-        <div
-          {...pointerHandlers}
-          style={{
-            display: 'flex', justifyContent: 'center', alignItems: 'center',
-            height: 28, paddingTop: 12,
-            cursor: dragging ? 'grabbing' : 'grab',
-            touchAction: 'none',
-          }}
-        >
-          <div style={{
-            width: 48, height: 4, borderRadius: 7,
-            background: 'rgba(9, 9, 11, 0.16)',
-            opacity: Math.min(1, progress * 3),
-            transition: dragging ? 'none' : 'opacity 0.2s ease',
-          }} />
-        </div>
-
-        {/* Scrollable content — padding-bottom clears the glass action
-            bar so the last input is never permanently obscured. */}
-        <div className="phone-scroll" data-no-drag style={{
-          height: 'calc(100% - 28px)', overflow: 'auto',
-          padding: `12px 0 ${ACTIONS_H + 24}px`,
-          WebkitOverflowScrolling: 'touch',
-        }}>
-          {/* Title row — a small recipe thumbnail slides in next to
-              the title as the sheet rises (Figma node 20635:14707).
-              In the flat/preview state the thumb is collapsed to zero
-              width, so the title + tag read as a vertical stack just
-              like the default detail (Figma 20635:14501). */}
-          <div style={{ padding: '0 24px' }}>
-            <div style={{
-              display: 'flex',
-              gap: lerp(0, 16),
-              alignItems: 'center',
-              transition: snapTransition,
-            }}>
-              <div style={{
-                width: lerp(0, 37),
-                height: 66,
-                borderRadius: 8,
-                overflow: 'hidden',
-                flexShrink: 0,
-                background: hasImage ? '#000' : theme.bg,
-                opacity: progress,
-                transition: snapTransition,
-              }}>
-                {hasImage ? (
-                  <img
-                    src={recipe.image}
-                    alt=""
-                    draggable={false}
-                    onError={() => setImageFailed(true)}
-                    style={{
-                      width: '100%', height: '100%',
-                      objectFit: 'cover', display: 'block',
-                      pointerEvents: 'none',
-                    }}
-                  />
-                ) : null}
-              </div>
-              <div style={{
-                flex: 1, minWidth: 0,
-                display: 'flex', flexDirection: 'column',
-                gap: lerp(8, 4),
-                alignItems: 'flex-start',
-                justifyContent: 'center',
-              }}>
-                <h2 style={{
-                  margin: 0,
-                  fontFamily: '"Manrope", system-ui, sans-serif',
-                  fontSize: 22, lineHeight: '28px', fontWeight: 600,
-                  color: '#09090B',
-                  fontFeatureSettings: '"zero" 1',
-                }}>{recipe.title}</h2>
-                <div><AdvertisePill /></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Description with optional inline file chip. */}
-          <div style={{ marginTop: 12, padding: '0 24px' }}>
-            <p style={{
-              margin: 0,
-              fontFamily: '"Manrope", system-ui, sans-serif',
-              fontSize: 14, lineHeight: '20px', fontWeight: 500,
-              color: '#3F3F46',
-              letterSpacing: 0.2,
-              fontFeatureSettings: '"zero" 1',
-            }}>
-              {renderDescriptionWithFile(
-                recipe.previewDescription || recipe.description || '',
-                recipe.previewFile
-              )}
-            </p>
-          </div>
-
-          {/* Upload image — 120×120 square dashed dropzone per Figma
-              node 20635:14339. Tapping toggles the prototype upload
-              state so the CTA can flip to its ready style. */}
-          <div style={{
-            marginTop: 24, padding: '0 24px',
-            display: 'flex', flexDirection: 'column', gap: 8,
-          }}>
-            <div style={{
-              fontFamily: '"Manrope", system-ui, sans-serif',
-              fontSize: 16, lineHeight: '24px', fontWeight: 600,
-              color: '#3F3F46', letterSpacing: 0.15,
-              fontFeatureSettings: '"zero" 1',
-            }}>Upload image</div>
-            <button
-              onClick={() => setUploaded((v) => !v)}
-              data-no-drag
-              style={{
-                width: 120, height: 120,
-                background: uploaded ? 'rgba(124, 91, 253, 0.06)' : 'transparent',
-                border: uploaded
-                  ? '1.5px dashed rgba(124, 91, 253, 0.4)'
-                  : '1px dashed rgba(74, 68, 89, 0.16)',
-                borderRadius: 12,
-                cursor: 'pointer',
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'center', gap: 2,
-                color: uploaded ? '#5A3DD8' : 'rgba(63, 63, 70, 0.4)',
-                padding: '4px 12px',
-                transition: 'background 0.18s ease, border 0.18s ease, color 0.18s ease',
-              }}
-            >
-              <Icon.Plus size={24} stroke={2} />
-              <div style={{
-                fontFamily: '"Manrope", system-ui, sans-serif',
-                fontSize: 12, lineHeight: '17px', fontWeight: 500,
-                letterSpacing: 0.2,
-                fontFeatureSettings: '"zero" 1',
-              }}>{uploaded ? 'Attached' : 'Character'}</div>
-            </button>
-          </div>
-
-          {/* Describe section — Figma M3 Field (8px radius), 136 tall. */}
-          <div style={{
-            marginTop: 16, padding: '0 24px',
-            display: 'flex', flexDirection: 'column', gap: 8,
-          }}>
-            <div style={{
-              fontFamily: '"Manrope", system-ui, sans-serif',
-              fontSize: 16, lineHeight: '24px', fontWeight: 600,
-              color: '#3F3F46', letterSpacing: 0.15,
-              fontFeatureSettings: '"zero" 1',
-            }}>Describe your idea to remix it</div>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Input text"
-              rows={6}
-              data-no-drag
-              style={{
-                width: '100%', height: 136,
-                border: '0.5px solid #D4D4D8',
-                borderRadius: 8,
-                padding: '6px 8px',
-                fontFamily: '"Manrope", system-ui, sans-serif',
-                fontSize: 14, lineHeight: '20px', fontWeight: 500,
-                color: '#3F3F46', letterSpacing: 0.2,
-                background: '#FAFAFA',
-                resize: 'none',
-                outline: 'none',
-                boxSizing: 'border-box',
-                fontFeatureSettings: '"zero" 1',
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Toast — floats just above the action bar. Renders only when a
-          message is set; keyed by `toast.id` so consecutive triggers
-          replay the entrance animation even if the copy is identical. */}
-      {toast && (
-        <div
-          key={toast.id}
-          role="status"
-          aria-live="polite"
-          style={{
-            position: 'absolute', left: 16, right: 16,
-            bottom: ACTIONS_H + 8,
-            zIndex: 7,
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '12px 14px',
-            background: 'rgba(20, 18, 24, 0.92)',
-            color: '#FFFFFF',
-            borderRadius: 12,
-            border: '0.5px solid rgba(255, 255, 255, 0.10)',
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.18)',
-            fontFamily: '"Manrope", system-ui, sans-serif',
-            fontSize: 13.5, lineHeight: '20px', fontWeight: 500,
-            letterSpacing: 0.1,
-            animation: 'detailToastIn 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
-          }}
-        >
-          {/* Info dot — purple accent to read as a friendly hint not an
-              error. Keeps the toast visually consistent with the app's
-              creative tone. */}
-          <span aria-hidden="true" style={{
-            width: 18, height: 18, borderRadius: 999,
-            background: 'rgba(157, 121, 255, 0.20)',
-            color: '#C6ABFF',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 12, fontWeight: 700, flexShrink: 0,
-          }}>!</span>
-          <span style={{ flex: 1, minWidth: 0 }}>{toast.message}</span>
         </div>
       )}
 
-      {/* Sticky action bar — Figma buttonBar (gradient + 10px blur).
-          The hairline above fades in with `progress` so flat preview
-          stays seamless. */}
+      {/* Player chrome — bottom scrubber + time + mute icon. Pure
+          prototype playback chrome. Tapping the video toggles between
+          play / pause and the scrubber progresses while playing. */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        background: 'linear-gradient(180deg, rgba(254, 247, 255, 0) 0%, rgba(254, 247, 255, 0.08) 100%)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        padding: '8px 24px 36px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
-        zIndex: 6,
-        boxShadow: `inset 0 0.5px 0 rgba(255, 255, 255, 0.6), 0 -0.5px 0 rgba(0, 0, 0, ${(0.04 * progress).toFixed(3)})`,
-        transition: dragging ? 'none' : 'box-shadow 0.34s cubic-bezier(0.32, 0.72, 0, 1)',
+        padding: '0 16px 16px',
+        display: 'flex', alignItems: 'center', gap: 10,
+        pointerEvents: 'none',
       }}>
-        <PrimaryCTA
-          label={ctaLabel}
-          enabled={ctaEnabled}
-          onClick={onCta}
-        />
-        {/* Share — Wabi-style liquid glass to match the bottom nav's
-            FAB language. Opens the Medeo TV share page. */}
+        <div style={{
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 12, fontWeight: 600, color: 'rgba(20,20,28,0.72)',
+        }}>0:{String(currentSecond).padStart(2, '0')}</div>
+        <div style={{
+          position: 'relative', flex: 1, height: 4, borderRadius: 999,
+          background: 'rgba(20,20,28,0.18)',
+        }}>
+          <div style={{
+            position: 'absolute', top: 0, left: 0, bottom: 0,
+            width: `${progress}%`, borderRadius: 999, background: 'rgba(20,20,28,0.85)',
+            transition: isPlaying ? 'width 0.26s linear' : 'none',
+          }} />
+          <div style={{
+            position: 'absolute', top: '50%', left: `${progress}%`,
+            width: 11, height: 11, borderRadius: 999,
+            background: '#FFFFFF',
+            border: '0.5px solid rgba(20,20,28,0.4)',
+            transform: 'translate(-50%, -50%)',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+            transition: isPlaying ? 'left 0.26s linear' : 'none',
+          }} />
+        </div>
+        <div style={{
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 12, fontWeight: 600, color: 'rgba(20,20,28,0.6)',
+        }}>0:16</div>
+        <Icon.VolumeOff size={16} color="rgba(20,20,28,0.7)" stroke={1.8} />
+      </div>
+    </div>
+  );
+}
+
+// ── Detail screen ────────────────────────────────────────────────
+// Recipe detail page (image 1 reference). Layout:
+//
+//   ┌────────────────────────┐
+//   │  [back glass btn]      │
+//   │     VIDEO PREVIEW      │
+//   │  (gradient + label)    │
+//   │   ▌▌▌▌ scrubber 🔇    │
+//   ├────────────────────────┤
+//   │  Title                 │
+//   │  [Advertise]           │
+//   │  Description w/ chip   │
+//   │  Upload image (label)  │
+//   ├────────────────────────┤
+//   │ [Try this recipe] [↗] │
+//   └────────────────────────┘
+//
+// "Upload image" appears as a teaser heading only — the actual
+// form (dropzone + describe textarea) lives in the Config Sheet
+// modal that opens on tap of "Try this recipe". This keeps the
+// detail page purely "browse / decide", and the sheet purely
+// "commit / edit inputs" — see § 7.1.5 of PRD-Notification.md.
+//
+// When entered via a failed-notification retry path, parent
+// passes `autoOpenConfig` so the Config Sheet rises on mount with
+// the original inputs prefilled.
+function RecipeDetailScreen({ recipe, onBack, onOpenShareView, autoOpenConfig }) {
+  const [configOpen, setConfigOpen] = React.useState(!!autoOpenConfig);
+  const [shareOpen, setShareOpen] = React.useState(false);
+  React.useEffect(() => {
+    setConfigOpen(!!autoOpenConfig);
+    setShareOpen(false);
+  }, [recipe && recipe.id, autoOpenConfig]);
+
+  const onSubmit = React.useCallback(() => {
+    if (typeof window.__enqueueGeneration === 'function') {
+      window.__enqueueGeneration(recipe);
+    }
+    setConfigOpen(false);
+    if (typeof onBack === 'function') onBack();
+  }, [recipe, onBack]);
+
+  // Related recipes — everything except the current one, split into
+  // the same two columns the home browse surface uses so the detail
+  // page reads as a continuation of "discover more like this" rather
+  // than a separate visual system.
+  const related = React.useMemo(() => {
+    const all = (window.RECIPES || []).filter((r) => r.id !== recipe.id);
+    return { L: all.filter((r) => r.col === 'L'), R: all.filter((r) => r.col === 'R') };
+  }, [recipe && recipe.id, recipe && recipe.image, recipe && recipe.title]);
+
+  const credits = typeof recipe.credits === 'number' ? recipe.credits : 12;
+  const VIDEO_H = 480;
+  const ACTIONS_H = 96;
+
+  return (
+    <div className="screen-fade" style={{
+      position: 'absolute', inset: 0, zIndex: 80,
+      background: '#FFFFFF',
+      overflow: 'hidden',
+    }}>
+      {/* Pinterest-style detail flow: video, description and related
+          templates live in one scroll container. When the user pushes
+          up to see more, the whole page moves together instead of the
+          lower panel scrolling independently under a fixed video. */}
+      <div className="phone-scroll" style={{
+        position: 'absolute', inset: 0,
+        background: '#FFFFFF',
+        overflow: 'auto',
+        paddingBottom: ACTIONS_H + 24,
+        WebkitOverflowScrolling: 'touch',
+      }}>
+        {/* Hero video preview — part of the scroll flow, not fixed. */}
+        <RecipePreviewVideo recipe={recipe} height={VIDEO_H} onBack={onBack} />
+
+        <div style={{ padding: '20px 20px 0' }}>
+          <h2 style={{
+            margin: 0,
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 24, lineHeight: '30px', fontWeight: 700,
+            color: '#09090B', letterSpacing: -0.3,
+            fontFeatureSettings: '"zero" 1',
+          }}>{recipe.title}</h2>
+
+          <div style={{ marginTop: 8 }}><AdvertisePill /></div>
+
+          <p style={{
+            margin: '14px 0 0',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 14, lineHeight: '21px', fontWeight: 500,
+            color: '#3F3F46', letterSpacing: 0.2,
+            fontFeatureSettings: '"zero" 1',
+          }}>
+            {renderDescriptionWithFile(
+              recipe.previewDescription || recipe.description || '',
+              recipe.previewFile
+            )}
+          </p>
+
+          {/* "More like this" — section header + recipe count */}
+          <div style={{
+            marginTop: 28, marginBottom: 10,
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+          }}>
+            <h3 style={{
+              margin: 0,
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 17, lineHeight: '22px', fontWeight: 700,
+              color: '#09090B', letterSpacing: -0.1,
+              fontFeatureSettings: '"zero" 1',
+            }}>More like this</h3>
+            <span style={{
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 12, lineHeight: '16px', fontWeight: 500,
+              color: '#71717A', letterSpacing: 0.2,
+            }}>{related.L.length + related.R.length} templates</span>
+          </div>
+
+          {/* Pinterest-style masonry — two columns reuse RecipeCard so
+              the visual grammar stays consistent with the home browse
+              surface. Tapping any card opens that recipe's detail page
+              (re-uses window.__openRecipeDetail set by the app). */}
+          <div style={{
+            display: 'flex', gap: 8, alignItems: 'flex-start',
+          }}>
+            {['L', 'R'].map((col) => (
+              <div key={col} style={{
+                flex: 1, minWidth: 0,
+                display: 'flex', flexDirection: 'column', gap: 4,
+              }}>
+                {related[col].map((r) => (
+                  <RecipeCard
+                    key={r.id}
+                    recipe={r}
+                    onClick={() => {
+                      if (typeof window.__openRecipeDetail === 'function') {
+                        window.__openRecipeDetail(r);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Floating native-style action controls — detached from the
+          content like iOS floating tabs. No full-width gradient bar:
+          the page scrolls underneath while the actions hover above
+          the home indicator. */}
+      <div style={{
+        position: 'absolute', bottom: 34, left: 20, right: 20,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+        zIndex: 6,
+        pointerEvents: 'none',
+      }}>
+        <button
+          onClick={() => setConfigOpen(true)}
+          style={{
+            flex: 1, height: 48, borderRadius: 'var(--shape-radius-full)',
+            border: 'none',
+            background: 'var(--color-schemes-primary)',
+            color: 'var(--color-schemes-on-primary)',
+            padding: '0 var(--space-s5)',
+            cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-s2)',
+            fontFamily: 'var(--font-family-plain, "Manrope", system-ui, sans-serif)',
+            fontFeatureSettings: '"zero" 1',
+            fontSize: 'var(--type-label-large-prominent-size)',
+            lineHeight: 'var(--type-label-large-prominent-leading)',
+            fontWeight: 'var(--type-label-large-prominent-weight)',
+            letterSpacing: 'var(--type-label-large-prominent-tracking)',
+            boxShadow: '0 10px 26px rgba(134,61,251,0.28), 0 2px 6px rgba(134,61,251,0.18)',
+            pointerEvents: 'auto',
+          }}
+        >
+          <Icon.ChefHat size={18} color="var(--color-schemes-on-primary)" />
+          Try this recipe
+        </button>
         <button
           onClick={() => setShareOpen(true)}
-          aria-label="Share" data-no-drag
+          aria-label="Share"
           className="glass-wabi"
           style={{
-            width: 50, height: 50, borderRadius: 999,
+            width: 48, height: 48, borderRadius: 'var(--shape-radius-full)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer', padding: 0, flexShrink: 0,
+            background: 'rgba(255,255,255,0.88)',
+            backdropFilter: 'blur(18px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+            boxShadow: '0 10px 26px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)',
+            pointerEvents: 'auto',
           }}>
-          <Icon.Share size={18} color="#1A1A22" />
+          <Icon.Share size={18} color="var(--color-surface-on-surface)" />
         </button>
       </div>
 
-      {/* Medeo TV share page — opens above everything when the share
-          IconButton in the action bar is tapped. */}
+      {/* Config sheet — opens on CTA tap. Single-detent modal:
+          form only, drag down past threshold to dismiss. */}
+      {configOpen && (
+        <RecipeConfigSheet
+          recipe={recipe}
+          credits={credits}
+          onClose={() => setConfigOpen(false)}
+          onSubmit={onSubmit}
+        />
+      )}
+
       {shareOpen && (
         <SharePage
           recipe={recipe}
           onClose={() => setShareOpen(false)}
         />
       )}
-
-      {/* Conversation page — opens when the user submits the cook
-          form via the "Try this recipe" CTA. */}
-      {chatOpen && (
-        <ConversationScreen
-          recipe={recipe}
-          userText={text}
-          userFile={uploaded ? (recipe.previewFile || null) : null}
-          onClose={() => setChatOpen(false)}
-          onOpenShareView={onOpenShareView}
-        />
-      )}
     </div>
   );
 }
 
-// ── Cook sheet (Pinterest-style modal) ────────────────────────────
-// Triggered by the detail page's "Try this recipe" CTA. Behaves like
-// Pinterest's visual-search panel: opens at a small height showing
-// the upload form on top of the template image, can be dragged up to
-// a full height where a thumbnail of the template appears in the
-// sheet header. Drag down past the small stop to dismiss.
+function RemixTextInputOverlay({ value, onChange, onClose }) {
+  const inputRef = React.useRef(null);
+  const Keyboard = window.FakeKeyboard;
+
+  React.useEffect(() => {
+    const id = window.requestAnimationFrame(() => {
+      inputRef.current && inputRef.current.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 42,
+      pointerEvents: 'auto',
+    }}>
+      <div onClick={onClose} style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(20, 18, 24, 0.16)',
+        backdropFilter: 'blur(3px)',
+        WebkitBackdropFilter: 'blur(3px)',
+      }} />
+
+      {/* Global free-text input — same family as the composer, but no
+          prefilled prompt / no asset slot sentence. It starts with the
+          neutral "Type anything..." placeholder from the global input
+          pattern; the homepage composer remains the only surface with
+          "Create a short video with..." + resource slots. */}
+      <div className="sheet-enter" style={{
+        position: 'absolute',
+        left: 0, right: 0, bottom: 247,
+        zIndex: 2,
+        background: 'rgba(255,255,255,0.62)',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        borderTop: '0.5px solid rgba(255,255,255,0.76)',
+        boxShadow: '0 -18px 60px rgba(20, 8, 60, 0.16), inset 0 1px 1px rgba(255,255,255,0.62)',
+        backdropFilter: 'blur(26px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(26px) saturate(180%)',
+        padding: '18px 14px 14px',
+        overflow: 'hidden',
+      }}>
+        <textarea
+          ref={inputRef}
+          value={value}
+          onChange={(e) => onChange && onChange(e.target.value)}
+          rows={4}
+          placeholder="Type anything..."
+          style={{
+            width: '100%',
+            minHeight: 118,
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            resize: 'none',
+            padding: 0,
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 17,
+            lineHeight: '25px',
+            fontWeight: 500,
+            color: '#1F1A23',
+            letterSpacing: 0.1,
+          }}
+        />
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'auto minmax(0, 1fr)',
+          alignItems: 'center',
+          marginTop: 14,
+          gap: 8,
+        }}>
+          <div style={{
+            minWidth: 0,
+            display: 'grid',
+            gridTemplateColumns: '44px 92px 44px 44px',
+            alignItems: 'center',
+            gap: 6,
+          }}>
+            <button aria-label="Add attachment" style={globalInputIconBtn}>
+              <Icon.Plus size={18} color="#1F1A23" stroke={2.2} />
+            </button>
+            <button aria-label="Aspect ratio" style={{
+              ...globalInputIconBtn,
+              width: 92,
+              padding: '0 10px',
+              gap: 6,
+            }}>
+              <Icon.Ratio size={16} color="#1F1A23" stroke={1.8} />
+              <span style={{
+                fontFamily: '"Manrope", system-ui, sans-serif',
+                fontSize: 15, lineHeight: '20px', fontWeight: 600,
+                color: '#1F1A23',
+              }}>16:9</span>
+            </button>
+            <button aria-label="3D" style={globalInputIconBtn}>
+              <Icon.Cube size={17} color="#1F1A23" stroke={1.8} />
+            </button>
+            <button aria-label="More" style={globalInputIconBtn}>
+              <Icon.Dots size={17} color="#1F1A23" />
+            </button>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              height: 48,
+              minWidth: 0,
+              width: '100%',
+              borderRadius: 'var(--shape-radius-full)',
+              border: 'none',
+              background: 'var(--color-schemes-primary)',
+              color: 'var(--color-schemes-on-primary)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              cursor: 'pointer',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 16, lineHeight: '22px', fontWeight: 600,
+              boxShadow: '0 8px 22px rgba(134,61,251,0.32), inset 0 1px 1px rgba(255,255,255,0.36)',
+            }}
+          >
+            <Icon.Play2 size={14} color="var(--color-schemes-on-primary)" />
+            <span style={{
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>Generate</span>
+          </button>
+        </div>
+      </div>
+
+      {Keyboard ? <Keyboard /> : null}
+    </div>
+  );
+}
+
+const globalInputIconBtn = {
+  width: 44,
+  height: 44,
+  borderRadius: 'var(--shape-radius-full)',
+  border: '0.5px solid rgba(255,255,255,0.68)',
+  background: 'rgba(255,255,255,0.72)',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  padding: 0,
+  boxShadow: '0 4px 14px rgba(20,8,60,0.10), inset 0 1px 1px rgba(255,255,255,0.8)',
+  backdropFilter: 'blur(14px) saturate(160%)',
+  WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+};
+
+// ── Recipe config sheet ──────────────────────────────────────────
+// Single-detent modal bottom sheet for the cook form.
 //
-// State (text + uploaded) lives in the parent so the form persists
-// across open/close cycles.
-function CookSheet({ recipe, text, uploaded, onTextChange, onToggleUpload, onClose }) {
+// Layout (locked, no expand-to-show-video state): drag handle +
+// back chevron + small thumbnail + title + Advertise pill row,
+// description, upload dropzone, describe textarea, sticky CTA
+// with credits chip.
+//
+// Drag past PHONE_H - 80 → dismiss. There is intentionally no
+// "expand up to reveal a hero video" detent — the recipe video
+// lives on the Recipe Detail page; the sheet is committed
+// strictly to "enter inputs and submit." Keeps the two surfaces
+// semantically distinct (browse vs. commit).
+function RecipeConfigSheet({ recipe, credits = 12, onClose, onSubmit }) {
+  const theme = window.CARD_THEMES[recipe.theme] || window.CARD_THEMES.jelly;
+  const [imageFailed, setImageFailed] = React.useState(false);
+  const hasImage = recipe.image && !imageFailed;
+
   const PHONE_H = 852;
   const STATUS_H = 62;
-  const ACTIONS_H = 96;
+  const EXPANDED_TOP = 0;                   // full-page mode covers the old page
+  const DEFAULT_TOP = STATUS_H + 58;        // resting sheet mode
+  const DISMISS_TOP = PHONE_H - 80;         // drag past → close
 
-  // Snap stops (sheet TOP in px from the phone frame's top edge):
-  //   SMALL → sheet sits in the bottom ~45% of the phone, template
-  //           still fully visible behind (matches Pinterest image 1).
-  //   FULL  → sheet covers everything below the iOS status bar,
-  //           template now shown as a small thumb in the header.
-  const SMALL_TOP = 480;
-  const FULL_TOP = STATUS_H;
-  const DISMISS_TOP = PHONE_H - 60; // drag below this releases close
+  const [text, setText] = React.useState('');
+  const [uploaded, setUploaded] = React.useState(false);
+  const [textFocused, setTextFocused] = React.useState(false);
+  const [remixInputOpen, setRemixInputOpen] = React.useState(false);
+  const uploadInputRef = React.useRef(null);
+  const ready = true;
 
-  const ready = uploaded && text.trim().length > 0;
+  // Inline missing-field hint — lives inside the sheet so it
+  // doesn't fight the global app toast for the same real estate.
+  const [hint, setHint] = React.useState(null);
+  React.useEffect(() => {
+    if (!hint) return;
+    const id = window.setTimeout(() => setHint(null), 2400);
+    return () => window.clearTimeout(id);
+  }, [hint]);
 
-  // Start off-screen, then animate to SMALL on mount so the entry
-  // reads as a slide-up. requestAnimationFrame avoids the React
-  // batching that would skip the start frame.
+  // Sheet top position drives the slide-in, drag-to-expand and
+  // drag-to-dismiss gestures. Starts off-screen at PHONE_H, animates
+  // up to DEFAULT_TOP on mount. Drag up to EXPANDED_TOP turns the
+  // sheet into a standalone full-page config surface.
   const [sheetTop, setSheetTop] = React.useState(PHONE_H);
   const [dragging, setDragging] = React.useState(false);
   const dragRef = React.useRef(null);
   const closingRef = React.useRef(false);
 
   React.useEffect(() => {
-    const id = window.requestAnimationFrame(() => setSheetTop(SMALL_TOP));
+    const id = window.requestAnimationFrame(() => setSheetTop(DEFAULT_TOP));
     return () => window.cancelAnimationFrame(id);
   }, []);
 
-  // 0 = small, 1 = full. Drives the template-thumb header reveal and
-  // the backdrop dim.
-  const progress = Math.max(0, Math.min(1,
-    (SMALL_TOP - sheetTop) / (SMALL_TOP - FULL_TOP)));
-
-  const requestClose = () => {
+  const requestClose = React.useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
     setSheetTop(PHONE_H);
     window.setTimeout(onClose, 280);
-  };
+  }, [onClose]);
 
-  // ── Drag ──────────────────────────────────────────────────────
+  // Drag handlers — only the handle row is draggable so the form
+  // inside behaves naturally (textarea / buttons / scroll all work).
+  // Release picks the nearest semantic state: expanded page, default
+  // sheet, or dismiss if pulled far enough downward.
   const beginDrag = (clientY) => {
     dragRef.current = { startY: clientY, startTop: sheetTop };
     setDragging(true);
@@ -1450,8 +1758,7 @@ function CookSheet({ recipe, text, uploaded, onTextChange, onToggleUpload, onClo
   const moveDrag = (clientY) => {
     if (!dragRef.current) return;
     const dy = clientY - dragRef.current.startY;
-    // Allow dragging below SMALL_TOP for the dismiss gesture.
-    const next = Math.max(FULL_TOP,
+    const next = Math.max(EXPANDED_TOP,
       Math.min(PHONE_H, dragRef.current.startTop + dy));
     setSheetTop(next);
   };
@@ -1459,20 +1766,18 @@ function CookSheet({ recipe, text, uploaded, onTextChange, onToggleUpload, onClo
     if (!dragRef.current) return;
     setSheetTop((t) => {
       if (t > DISMISS_TOP) {
-        // Past the dismiss threshold — animate out and close.
         window.setTimeout(requestClose, 0);
         return t;
       }
-      const mid = (SMALL_TOP + FULL_TOP) / 2;
-      return t < mid ? FULL_TOP : SMALL_TOP;
+      const expandThreshold = DEFAULT_TOP - (DEFAULT_TOP - EXPANDED_TOP) * 0.35;
+      return t < expandThreshold ? EXPANDED_TOP : DEFAULT_TOP;
     });
     dragRef.current = null;
     setDragging(false);
   };
 
-  const pointerHandlers = {
+  const handlePointerHandlers = {
     onPointerDown: (e) => {
-      if (e.target.closest && e.target.closest('[data-no-drag]')) return;
       try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
       beginDrag(e.clientY);
     },
@@ -1495,52 +1800,76 @@ function CookSheet({ recipe, text, uploaded, onTextChange, onToggleUpload, onClo
     ? 'none'
     : 'top 0.34s cubic-bezier(0.32, 0.72, 0, 1)';
 
-  const onSubmit = () => {
-    if (!ready) return;
-    // In the real app this would fire the generation request.
-    // For the prototype, just close the sheet and reset progress.
-    requestClose();
+  const onCta = () => {
+    onSubmit && onSubmit({ text, uploaded });
   };
+
+  // enterProgress: 0 when off-screen, 1 when at DEFAULT_TOP.
+  // expandProgress: 0 at default sheet, 1 at full-page mode.
+  // These drive the backdrop, top radius and shadow so the sheet
+  // visually becomes a page when pushed to the top.
+  const enterProgress = Math.max(0, Math.min(1,
+    (PHONE_H - sheetTop) / (PHONE_H - DEFAULT_TOP)));
+  const expandProgress = Math.max(0, Math.min(1,
+    (DEFAULT_TOP - sheetTop) / (DEFAULT_TOP - EXPANDED_TOP)));
+  const sheetRadius = 28 * (1 - expandProgress);
+  const horizontalPad = 20 + 8 * expandProgress;
+  // In full-page mode the sheet covers the status-bar area, so the
+  // content itself needs a safe top inset. This avoids the old page
+  // peeking through above the sheet while keeping the title below
+  // the iOS status bar.
+  const headerPadTop = 4 + 54 * expandProgress;
+  const formBottomPad = 120 + 28 * expandProgress;
 
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 90,
-      pointerEvents: 'none', // children re-enable pointer-events
+      pointerEvents: 'none',
     }}>
-      {/* Backdrop dim — only fades in once the sheet is past the
-          small stop so the template stays fully visible in the
-          Pinterest-style "peek" state. */}
       <div
         onClick={requestClose}
         style={{
           position: 'absolute', inset: 0,
           background: '#000',
-          opacity: 0.32 * progress,
-          pointerEvents: progress > 0.05 ? 'auto' : 'none',
+          opacity: 0.42 * enterProgress,
+          pointerEvents: enterProgress > 0.05 ? 'auto' : 'none',
           transition: dragging ? 'none' : 'opacity 0.24s ease',
         }}
       />
 
-      {/* Sheet */}
       <div style={{
         position: 'absolute',
         top: sheetTop, left: 0, right: 0, bottom: 0,
         background: '#FFFFFF',
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        boxShadow: '0 -2px 12px rgba(0, 0, 0, 0.06), 0 -16px 48px rgba(0, 0, 0, 0.12)',
+        borderTopLeftRadius: sheetRadius,
+        borderTopRightRadius: sheetRadius,
+        boxShadow: expandProgress > 0.98
+          ? 'none'
+          : '0 -2px 12px rgba(0, 0, 0, 0.06), 0 -16px 48px rgba(0, 0, 0, 0.18)',
         overflow: 'hidden',
-        transition: snapTransition,
+        transition: dragging
+          ? 'none'
+          : 'top 0.34s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.34s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.18s ease',
         pointerEvents: 'auto',
+        display: 'flex', flexDirection: 'column',
       }}>
-        {/* Drag handle row */}
+        {/* Drag handle row — visible only in sheet mode. Once the
+            surface is pushed to the top, it becomes a full page and
+            the sheet affordance disappears. */}
         <div
-          {...pointerHandlers}
+          {...handlePointerHandlers}
           style={{
             display: 'flex', justifyContent: 'center', alignItems: 'center',
-            height: 28, paddingTop: 12,
+            height: expandProgress > 0.98 ? 0 : 28,
+            paddingTop: expandProgress > 0.98 ? 0 : 12,
             cursor: dragging ? 'grabbing' : 'grab',
             touchAction: 'none',
+            flexShrink: 0,
+            background: '#FFFFFF',
+            position: 'relative', zIndex: 2,
+            overflow: 'hidden',
+            transition: dragging ? 'none' : 'height 0.24s ease, padding-top 0.24s ease, opacity 0.18s ease',
+            opacity: 1 - expandProgress,
           }}
         >
           <div style={{
@@ -1549,92 +1878,103 @@ function CookSheet({ recipe, text, uploaded, onTextChange, onToggleUpload, onClo
           }} />
         </div>
 
-        {/* Template header — slides down + fades in as the sheet
-            expands. At small height the user can already see the full
-            template behind, so the header is collapsed away. */}
+        {/* Sheet header — back chevron + small thumbnail + title +
+            advertise pill. No video here; the recipe's hero video
+            lives on the Recipe Detail page. */}
         <div style={{
-          maxHeight: progress > 0.05 ? 88 : 0,
-          opacity: progress,
-          overflow: 'hidden',
-          transition: dragging
-            ? 'none'
-            : 'max-height 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s ease',
+          padding: `${headerPadTop}px ${horizontalPad}px 12px`,
+          display: 'flex', alignItems: 'center', gap: 12,
+          flexShrink: 0,
+          transition: dragging ? 'none' : 'padding 0.24s ease',
         }}>
-          <div data-no-drag style={{
-            padding: '4px 20px 12px',
-            display: 'flex', alignItems: 'center', gap: 12,
-          }}>
-            <div style={{
-              width: 56, height: 56, borderRadius: 12,
-              overflow: 'hidden', background: '#000',
-              flexShrink: 0,
-            }}>
-              {recipe.image ? (
-                <img src={recipe.image} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} style={{
-                  width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                }} />
-              ) : null}
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{
-                fontFamily: '"Manrope", system-ui, sans-serif',
-                fontSize: 11, fontWeight: 500, color: '#71717A',
-                letterSpacing: 0.3, lineHeight: '16px',
-                textTransform: 'uppercase',
-                fontFeatureSettings: '"zero" 1',
-              }}>Recipe template</div>
-              <div style={{
-                fontFamily: '"Manrope", system-ui, sans-serif',
-                fontSize: 16, fontWeight: 600, color: '#09090B',
-                lineHeight: '22px',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                fontFeatureSettings: '"zero" 1',
-              }}>{recipe.title}</div>
-            </div>
-            <button
-              onClick={requestClose}
-              aria-label="Close"
-              style={{
-                width: 32, height: 32, borderRadius: 999,
-                border: 'none',
-                background: 'rgba(9, 9, 11, 0.04)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', padding: 0, flexShrink: 0,
-                color: '#1A1A22',
-              }}
-            >
-              <Icon.Close size={14} stroke={2.4} />
-            </button>
-          </div>
+          <button
+            onClick={requestClose}
+            aria-label="Close"
+            style={{
+              width: 32, height: 32, borderRadius: 999,
+              border: 'none',
+              background: 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', padding: 0, flexShrink: 0,
+              color: '#1A1A22',
+            }}
+          >
+            <Icon.Back size={16} stroke={2.2} />
+          </button>
           <div style={{
-            height: 0.5,
-            background: 'rgba(9, 9, 11, 0.06)',
-            margin: '0 20px',
-          }} />
+            width: 48, height: 48, borderRadius: 12, overflow: 'hidden',
+            background: hasImage ? '#000' : theme.bg,
+            flexShrink: 0,
+          }}>
+            {hasImage ? (
+              <img
+                src={recipe.image}
+                alt=""
+                draggable={false}
+                onError={() => setImageFailed(true)}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+            ) : null}
+          </div>
+          <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <h2 style={{
+              margin: 0,
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 20, lineHeight: '26px', fontWeight: 700,
+              color: '#09090B', letterSpacing: -0.2,
+              fontFeatureSettings: '"zero" 1',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{recipe.title}</h2>
+            <div><AdvertisePill /></div>
+          </div>
         </div>
 
-        {/* Scrollable form content */}
-        <div className="phone-scroll" data-no-drag style={{
-          height: 'calc(100% - 28px)',
-          overflow: 'auto',
-          padding: `16px 0 ${ACTIONS_H + 24}px`,
+        {/* Description — appears once inside the sheet so the user
+            keeps full context without leaving. */}
+        <div style={{
+          padding: `0 ${horizontalPad}px 12px`,
+          flexShrink: 0,
+          transition: dragging ? 'none' : 'padding 0.24s ease',
+        }}>
+          <p style={{
+            margin: 0,
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 14, lineHeight: '20px', fontWeight: 500,
+            color: '#3F3F46', letterSpacing: 0.2,
+            fontFeatureSettings: '"zero" 1',
+          }}>
+            {renderDescriptionWithFile(
+              recipe.previewDescription || recipe.description || '',
+              recipe.previewFile
+            )}
+          </p>
+        </div>
+
+        {/* Scrollable form */}
+        <div className="phone-scroll" style={{
+          flex: 1, overflow: 'auto',
+          padding: `12px 0 ${formBottomPad}px`,
           WebkitOverflowScrolling: 'touch',
         }}>
-          {/* Upload section — 194px dashed dropzone per Figma */}
           <div style={{
-            padding: '0 20px',
+            padding: `0 ${horizontalPad}px`,
             display: 'flex', flexDirection: 'column', gap: 8,
+            transition: dragging ? 'none' : 'padding 0.24s ease',
           }}>
             <div style={{
               fontFamily: '"Manrope", system-ui, sans-serif',
               fontSize: 16, lineHeight: '24px', fontWeight: 600,
               color: '#3F3F46', letterSpacing: 0.15,
               fontFeatureSettings: '"zero" 1',
-            }}>Upload your image</div>
+            }}>Upload image</div>
             <button
-              onClick={onToggleUpload}
+              onClick={() => {
+                if (uploadInputRef.current) {
+                  uploadInputRef.current.click();
+                }
+              }}
               style={{
-                width: '100%', height: 194,
+                width: 120, height: 120,
                 background: uploaded ? 'rgba(124, 91, 253, 0.06)' : 'transparent',
                 border: uploaded
                   ? '1.5px dashed rgba(124, 91, 253, 0.4)'
@@ -1654,14 +1994,29 @@ function CookSheet({ recipe, text, uploaded, onTextChange, onToggleUpload, onClo
                 fontSize: 12, lineHeight: '17px', fontWeight: 500,
                 letterSpacing: 0.2,
                 fontFeatureSettings: '"zero" 1',
-              }}>{uploaded ? 'Image attached · tap to remove' : 'Upload image'}</div>
+              }}>{uploaded ? 'Attached' : 'Character'}</div>
             </button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                if ((e.target.files || []).length > 0) setUploaded(true);
+              }}
+              style={{ display: 'none' }}
+            />
           </div>
 
-          {/* Describe section — Figma M3 Field (8px radius) */}
-          <div style={{
-            marginTop: 16, padding: '0 20px',
+          <div
+            onClick={() => {
+              setTextFocused(true);
+              setRemixInputOpen(true);
+            }}
+            style={{
+            marginTop: 16, padding: `0 ${horizontalPad}px`,
             display: 'flex', flexDirection: 'column', gap: 8,
+            cursor: 'text',
+            transition: dragging ? 'none' : 'padding 0.24s ease',
           }}>
             <div style={{
               fontFamily: '"Manrope", system-ui, sans-serif',
@@ -1671,11 +2026,24 @@ function CookSheet({ recipe, text, uploaded, onTextChange, onToggleUpload, onClo
             }}>Describe your idea to remix it</div>
             <textarea
               value={text}
-              onChange={(e) => onTextChange(e.target.value)}
-              placeholder="Input text"
+              readOnly
+              onClick={() => {
+                setTextFocused(true);
+                setRemixInputOpen(true);
+              }}
+              onPointerDown={() => {
+                setTextFocused(true);
+                setRemixInputOpen(true);
+              }}
+              onFocus={(e) => {
+                e.currentTarget.blur();
+                setTextFocused(true);
+                setRemixInputOpen(true);
+              }}
+              placeholder={textFocused ? '' : 'Input text'}
               rows={6}
               style={{
-                width: '100%', height: 194,
+                width: '100%', height: 136,
                 border: '0.5px solid #D4D4D8',
                 borderRadius: 8,
                 padding: '6px 8px',
@@ -1692,21 +2060,97 @@ function CookSheet({ recipe, text, uploaded, onTextChange, onToggleUpload, onClo
           </div>
         </div>
 
-        {/* Sticky action bar — primary CTA fires generation */}
+        {remixInputOpen && (
+          <RemixTextInputOverlay
+            value={text}
+            onChange={setText}
+            onClose={() => setRemixInputOpen(false)}
+          />
+        )}
+
+        {hint && (
+          <div
+            key={hint.id}
+            role="status"
+            aria-live="polite"
+            style={{
+              position: 'absolute', left: 16, right: 16,
+              bottom: 96 + 8,
+              zIndex: 7,
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '12px 14px',
+              background: 'rgba(20, 18, 24, 0.92)',
+              color: '#FFFFFF',
+              borderRadius: 12,
+              border: '0.5px solid rgba(255, 255, 255, 0.10)',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.18)',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 13.5, lineHeight: '20px', fontWeight: 500,
+              letterSpacing: 0.1,
+              animation: 'detailToastIn 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
+            }}
+          >
+            <span aria-hidden="true" style={{
+              width: 18, height: 18, borderRadius: 999,
+              background: 'rgba(157, 121, 255, 0.20)',
+              color: '#C6ABFF',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 700, flexShrink: 0,
+            }}>!</span>
+            <span style={{ flex: 1, minWidth: 0 }}>{hint.message}</span>
+          </div>
+        )}
+
+        {/* Sticky CTA — same shape and credits chip as the detail
+            page used to have; on the sheet this is where the cost
+            commitment surfaces. */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
-          background: 'linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.85) 30%, rgba(255, 255, 255, 0.92) 100%)',
+          background: 'linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.92) 30%, rgba(255, 255, 255, 0.96) 100%)',
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
-          padding: '8px 24px 36px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
-          boxShadow: 'inset 0 0.5px 0 rgba(255, 255, 255, 0.6)',
+          padding: '8px 20px 36px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
         }}>
-          <PrimaryCTA
-            label="Let's cook it"
-            enabled={ready}
-            onClick={onSubmit}
-          />
+          <button
+            onClick={onCta}
+            style={{
+              flex: 1, height: 48, borderRadius: 'var(--shape-radius-full)',
+              border: 'none',
+              background: 'var(--color-schemes-primary)',
+              color: 'var(--color-schemes-on-primary)',
+              padding: '6px 6px 6px 18px',
+              cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              fontFamily: 'var(--font-family-plain, "Manrope", system-ui, sans-serif)',
+              fontFeatureSettings: '"zero" 1',
+              opacity: ready ? 1 : 0.72,
+              transition: 'opacity 0.18s ease, background 0.18s ease',
+              boxShadow: '0 10px 26px rgba(134,61,251,0.22), 0 2px 6px rgba(134,61,251,0.14)',
+            }}
+          >
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              fontSize: 'var(--type-label-large-prominent-size)',
+              lineHeight: 'var(--type-label-large-prominent-leading)',
+              fontWeight: 'var(--type-label-large-prominent-weight)',
+              letterSpacing: 'var(--type-label-large-prominent-tracking)',
+            }}>
+              <Icon.ChefHat size={18} color="var(--color-schemes-on-primary)" />
+              Try this recipe
+            </span>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              height: 32, padding: '0 12px 0 10px', borderRadius: 999,
+              background: 'rgba(255, 255, 255, 0.16)',
+              border: '0.5px solid rgba(255, 255, 255, 0.18)',
+              color: '#FFFFFF',
+              fontSize: 13, fontWeight: 700, letterSpacing: 0.1,
+            }}>
+              <Icon.Bolt size={14} color="#F4B400" />
+              {credits}
+            </span>
+          </button>
         </div>
       </div>
     </div>
@@ -2080,6 +2524,12 @@ const ShareGlyph = {
       <circle cx="15.6" cy="6.4" r="0.9" fill={color}/>
     </svg>
   ),
+  WhatsApp: ({ color = '#FFFFFF' }) => (
+    <svg viewBox="0 0 22 22" width="22" height="22" fill="none">
+      <path d="M11 3.2a7.4 7.4 0 0 0-6.3 11.3L4 18.8l4.4-1.1A7.4 7.4 0 1 0 11 3.2z" stroke={color} strokeWidth="1.7" strokeLinejoin="round"/>
+      <path d="M8.3 7.5c-.2.5-.4.8-.2 1.3.5 1.4 1.8 2.8 3.3 3.5.5.2.9.1 1.3-.2l.7-.6c.2-.2.5-.2.7-.1l1.4.7c.2.1.3.4.2.7-.3.9-1 1.4-2 1.4-1.8 0-4.1-1.4-5.5-3C7 9.8 6.6 8.2 7.2 7.1c.2-.4.6-.6 1-.5.2 0 .3.1.4.3l.4.6c.1.1.1.3 0 .5l-.7 1.1z" fill={color}/>
+    </svg>
+  ),
   YouTube: ({ color = '#FFFFFF' }) => (
     <svg viewBox="0 0 22 22" width="22" height="22" fill="none">
       <rect x="2" y="5" width="18" height="12" rx="3.4" fill={color}/>
@@ -2089,6 +2539,13 @@ const ShareGlyph = {
   X: ({ color = '#FFFFFF' }) => (
     <svg viewBox="0 0 22 22" width="22" height="22" fill="none">
       <path d="M4.4 4h3.3l3.3 4.4L14.7 4h2.9l-5 5.9 5.4 7.1h-3.3l-3.7-4.8L6.2 17H3.3l5.3-6.3L4.4 4z" fill={color}/>
+    </svg>
+  ),
+  More: ({ color = '#FFFFFF' }) => (
+    <svg viewBox="0 0 22 22" width="22" height="22" fill="none">
+      <circle cx="5.5" cy="11" r="1.7" fill={color}/>
+      <circle cx="11" cy="11" r="1.7" fill={color}/>
+      <circle cx="16.5" cy="11" r="1.7" fill={color}/>
     </svg>
   ),
   CopyLink: ({ color = '#FFFFFF' }) => (
@@ -2114,6 +2571,7 @@ function ShareTarget({ icon: IconComp, label, onClick }) {
       cursor: 'pointer', flexShrink: 0,
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
       width: 56,
+      scrollSnapAlign: 'start',
     }}>
       <div style={{
         position: 'relative',
@@ -2351,14 +2809,59 @@ function TikTokAction({ icon, count }) {
 }
 
 function SharePage({ recipe, onClose }) {
+  const [copyToast, setCopyToast] = React.useState(null);
   const SHARE_TARGETS = [
-    { id: 'tiktok', label: 'TikTok',    icon: ShareGlyph.TikTok },
-    { id: 'story',  label: 'Story',     icon: ShareGlyph.Story },
-    { id: 'yt',     label: 'YouTube',   icon: ShareGlyph.YouTube },
-    { id: 'x',      label: 'X',         icon: ShareGlyph.X },
-    { id: 'copy',   label: 'Copy Link', icon: ShareGlyph.CopyLink },
-    { id: 'dl',     label: 'Download',  icon: ShareGlyph.Download },
+    { id: 'copy',      label: 'Copy link', icon: ShareGlyph.CopyLink },
+    { id: 'whatsapp',  label: 'WhatsApp',  icon: ShareGlyph.WhatsApp },
+    { id: 'tiktok',    label: 'TikTok',    icon: ShareGlyph.TikTok },
+    { id: 'instagram', label: 'Instagram', icon: ShareGlyph.Story },
+    { id: 'youtube',   label: 'YouTube',   icon: ShareGlyph.YouTube },
+    { id: 'x',         label: 'X',         icon: ShareGlyph.X },
+    { id: 'download',  label: 'Download',  icon: ShareGlyph.Download },
+    { id: 'more',      label: 'More',      icon: ShareGlyph.More },
   ];
+
+  const handleShareTarget = React.useCallback(async (target) => {
+    if (target.id === 'copy') {
+      const url = `https://medeo.app/share/${recipe && recipe.id ? recipe.id : 'creation'}`;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const input = document.createElement('input');
+          input.value = url;
+          input.setAttribute('readonly', '');
+          input.style.position = 'absolute';
+          input.style.left = '-9999px';
+          document.body.appendChild(input);
+          input.select();
+          const copied = document.execCommand && document.execCommand('copy');
+          document.body.removeChild(input);
+          if (!copied) throw new Error('Copy command failed');
+        }
+        setCopyToast({ kind: 'success', icon: 'copy', message: 'Link copied' });
+      } catch (_) {
+        setCopyToast({ kind: 'error', icon: 'copy', message: 'Copy failed' });
+      }
+      window.setTimeout(() => setCopyToast(null), 1800);
+    } else if (target.id === 'download') {
+      try {
+        if (!recipe || !recipe.image) {
+          throw new Error('No downloadable media');
+        }
+        const a = document.createElement('a');
+        a.href = recipe.image;
+        a.download = `${(recipe.title || 'medeo-video').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'medeo-video'}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setCopyToast({ kind: 'success', icon: 'download', message: 'Download started' });
+      } catch (_) {
+        setCopyToast({ kind: 'error', icon: 'download', message: 'Download failed' });
+      }
+      window.setTimeout(() => setCopyToast(null), 1800);
+    }
+  }, [recipe && recipe.id]);
 
   return (
     <div style={{
@@ -2419,19 +2922,57 @@ function SharePage({ recipe, onClose }) {
           to hint at more options. */}
       <div style={{
         position: 'absolute', bottom: 44, left: 0, right: 0,
-        padding: '0 20px 0 20px',
+        padding: '0 0 0 20px',
+        WebkitMaskImage: 'linear-gradient(90deg, #000 0%, #000 calc(100% - 38px), transparent 100%)',
+        maskImage: 'linear-gradient(90deg, #000 0%, #000 calc(100% - 38px), transparent 100%)',
       }}>
         <div className="phone-scroll" style={{
           display: 'flex', gap: 18,
           overflowX: 'auto', overflowY: 'hidden',
           WebkitOverflowScrolling: 'touch',
-          paddingBottom: 4,
+          padding: '0 56px 4px 0',
+          scrollSnapType: 'x proximity',
         }}>
           {SHARE_TARGETS.map((t) => (
-            <ShareTarget key={t.id} label={t.label} icon={t.icon} onClick={() => {}} />
+            <ShareTarget key={t.id} label={t.label} icon={t.icon} onClick={() => handleShareTarget(t)} />
           ))}
         </div>
       </div>
+
+      {copyToast && (
+        <div role="status" style={{
+          position: 'absolute',
+          left: '50%', bottom: 150,
+          transform: 'translateX(-50%)',
+          zIndex: 20,
+          height: 40,
+          padding: '0 16px',
+          borderRadius: 'var(--shape-radius-full)',
+          background: copyToast.kind === 'error'
+            ? 'rgba(186,26,26,0.92)'
+            : 'rgba(20,18,24,0.84)',
+          color: '#FFFFFF',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 13,
+          fontWeight: 600,
+          boxShadow: '0 10px 28px rgba(0,0,0,0.28)',
+          backdropFilter: 'blur(14px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+          pointerEvents: 'none',
+          animation: 'toastIn 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
+        }}>
+          {copyToast.kind === 'error'
+            ? <Icon.Warning size={15} color="#FFFFFF" />
+            : copyToast.icon === 'download'
+              ? <Icon.Download size={15} color="#FFFFFF" />
+              : <Icon.Share size={15} color="#FFFFFF" stroke={1.8} />}
+          {copyToast.message}
+        </div>
+      )}
     </div>
   );
 }
@@ -2458,8 +2999,45 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, accent = '#7C5BFD' }) {
   const theme = (window.CARD_THEMES && window.CARD_THEMES[r.theme]) || {};
   const bgColor = theme.bg || '#1A1A22';
   const title = r.title || 'Recipe title';
+  const [configOpen, setConfigOpen] = React.useState(false);
+  const [shareOpen, setShareOpen] = React.useState(false);
+  const [downloadToast, setDownloadToast] = React.useState(null);
+  const [photoPermission, setPhotoPermission] = React.useState('prompt'); // prompt | granted | denied
+  const [photoPermissionPrompt, setPhotoPermissionPrompt] = React.useState(false);
+  const [settingsPrompt, setSettingsPrompt] = React.useState(false);
+  const credits = typeof r.credits === 'number' ? r.credits : 12;
   // Mock playhead — 0:01 out of a 0:16 clip, ~6% played. Matches Figma.
   const PROGRESS = 0.06;
+
+  const saveToPhotos = React.useCallback(() => {
+    try {
+      if (!r.image) {
+        throw new Error('No downloadable media');
+      }
+      const a = document.createElement('a');
+      a.href = r.image;
+      a.download = `${(title || 'medeo-video').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'medeo-video'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setDownloadToast({ kind: 'success', message: 'Saved to Photos' });
+    } catch (_) {
+      setDownloadToast({ kind: 'error', message: 'Download failed' });
+    }
+    window.setTimeout(() => setDownloadToast(null), 1800);
+  }, [r.image, title]);
+
+  const handleDownload = React.useCallback(() => {
+    if (photoPermission === 'granted') {
+      saveToPhotos();
+      return;
+    }
+    if (photoPermission === 'prompt') {
+      setPhotoPermissionPrompt(true);
+      return;
+    }
+    setSettingsPrompt(true);
+  }, [photoPermission, saveToPhotos]);
 
   // Preview file used inside the caption — recipes that have a real
   // previewFile (e.g. jelly's "@character face image") use it directly;
@@ -2761,19 +3339,10 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, accent = '#7C5BFD' }) {
         }}>
           <button
             onClick={() => {
-              // "Use this recipe" → go to the work's recipe detail page so
-              // the user can review the description, swap inputs and remix.
-              // The parent decides where that lives; we just call it.
-              if (onUseRecipe) {
-                onUseRecipe(recipe);
-                return;
-              }
-              // Fallback for demo entry points that don't supply a handler:
-              // enqueue + dismiss so the action still has feedback.
-              if (typeof window.__enqueueGeneration === 'function') {
-                window.__enqueueGeneration(recipe);
-              }
-              onClose && onClose();
+              // "Use this recipe" opens the config bottom sheet directly
+              // from the share/result page. It does NOT route through
+              // Recipe Detail; the share view already gave the context.
+              setConfigOpen(true);
             }}
             style={{
               flex: 1, height: 50, borderRadius: 999,
@@ -2793,10 +3362,18 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, accent = '#7C5BFD' }) {
             <Icon.ChefHat size={18} color="#26222A" />
             <span>Use this recipe</span>
           </button>
-          <button aria-label="Download" style={glassIconBtn}>
+          <button
+            aria-label="Download to local album"
+            onClick={handleDownload}
+            style={glassIconBtn}
+          >
             <Icon.Download size={18} color="#FFFFFF" />
           </button>
-          <button aria-label="Share" style={glassIconBtn}>
+          <button
+            aria-label="Share"
+            onClick={() => setShareOpen(true)}
+            style={glassIconBtn}
+          >
             <Icon.Share size={18} color="#FFFFFF" stroke={1.8} />
           </button>
         </div>
@@ -2892,6 +3469,178 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, accent = '#7C5BFD' }) {
             {r.description ||
               'Turn any face into a squishy, jelly-like sculpture being molded by hands. Satisfying, weird, and impossible to scroll past — built for ASMR and curiosity-driven virality.'}
           </p>
+        </div>
+      </div>
+
+      {/* Direct remix config — same component used from Recipe Detail.
+          It opens as a bottom sheet and can be pushed to the top to
+          become a full-page configuration surface. */}
+      {configOpen && (
+        <RecipeConfigSheet
+          recipe={r}
+          credits={credits}
+          onClose={() => setConfigOpen(false)}
+          onSubmit={() => {
+            if (typeof window.__enqueueGeneration === 'function') {
+              window.__enqueueGeneration(r);
+            }
+            setConfigOpen(false);
+            onClose && onClose();
+          }}
+        />
+      )}
+
+      {/* Prototype feedback for "save to local album". On native this
+          would call the Photos permission / save API; here we trigger a
+          file download when possible and show success / failure. */}
+      {downloadToast && (
+        <div role="status" style={{
+          position: 'absolute',
+          left: '50%', bottom: 126,
+          transform: 'translateX(-50%)',
+          zIndex: 130,
+          height: 40,
+          padding: '0 16px',
+          borderRadius: 'var(--shape-radius-full)',
+          background: downloadToast.kind === 'error'
+            ? 'rgba(186,26,26,0.92)'
+            : 'rgba(20,18,24,0.84)',
+          color: '#FFFFFF',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 13,
+          fontWeight: 600,
+          boxShadow: '0 10px 28px rgba(0,0,0,0.28)',
+          backdropFilter: 'blur(14px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+          pointerEvents: 'none',
+          animation: 'toastIn 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
+        }}>
+          {downloadToast.kind === 'error'
+            ? <Icon.Warning size={15} color="#FFFFFF" />
+            : <Icon.Download size={15} color="#FFFFFF" />}
+          {downloadToast.message}
+        </div>
+      )}
+
+      {photoPermissionPrompt && (
+        <PhotoPermissionDialog
+          title="Allow Medeo to save to Photos?"
+          body="Medeo needs access to your photo library to save generated videos to your local album."
+          primaryLabel="Allow"
+          secondaryLabel="Don’t Allow"
+          onPrimary={() => {
+            setPhotoPermission('granted');
+            setPhotoPermissionPrompt(false);
+            saveToPhotos();
+          }}
+          onSecondary={() => {
+            setPhotoPermission('denied');
+            setPhotoPermissionPrompt(false);
+            setSettingsPrompt(true);
+          }}
+        />
+      )}
+
+      {settingsPrompt && (
+        <PhotoPermissionDialog
+          title="Photos access is off"
+          body="Turn on Photos permission in Settings to save generated videos to your local album."
+          primaryLabel="Go to Settings"
+          secondaryLabel="Cancel"
+          onPrimary={() => {
+            setSettingsPrompt(false);
+            setDownloadToast({ kind: 'error', message: 'Open Settings to enable Photos' });
+            window.setTimeout(() => setDownloadToast(null), 1800);
+          }}
+          onSecondary={() => setSettingsPrompt(false)}
+        />
+      )}
+
+      {shareOpen && (
+        <SharePage
+          recipe={r}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PhotoPermissionDialog({
+  title,
+  body,
+  primaryLabel,
+  secondaryLabel,
+  onPrimary,
+  onSecondary,
+}) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 150,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 28,
+      background: 'rgba(0,0,0,0.28)',
+      backdropFilter: 'blur(6px)',
+      WebkitBackdropFilter: 'blur(6px)',
+      animation: 'fade 0.18s ease',
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: 320,
+        borderRadius: 22,
+        background: 'rgba(255,255,255,0.96)',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.8)',
+        overflow: 'hidden',
+        textAlign: 'center',
+      }}>
+        <div style={{ padding: '22px 22px 18px' }}>
+          <div style={{
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 18,
+            lineHeight: '24px',
+            fontWeight: 700,
+            color: '#09090B',
+            letterSpacing: -0.2,
+          }}>{title}</div>
+          <div style={{
+            marginTop: 8,
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 13.5,
+            lineHeight: '19px',
+            fontWeight: 500,
+            color: '#5C5C66',
+          }}>{body}</div>
+        </div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          borderTop: '0.5px solid rgba(0,0,0,0.08)',
+        }}>
+          <button onClick={onSecondary} style={{
+            height: 48,
+            border: 'none',
+            borderRight: '0.5px solid rgba(0,0,0,0.08)',
+            background: 'transparent',
+            color: '#3F3F46',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}>{secondaryLabel}</button>
+          <button onClick={onPrimary} style={{
+            height: 48,
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--color-schemes-primary)',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}>{primaryLabel}</button>
         </div>
       </div>
     </div>

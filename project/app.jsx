@@ -4,7 +4,7 @@ const { useState, useRef, useEffect, useCallback } = React;
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "navVariant": "wabi",
   "theme": "light",
-  "accent": "#7C5BFD",
+  "accent": "#863dfb",
   "showOnlyOne": false
 }/*EDITMODE-END*/;
 
@@ -15,18 +15,33 @@ const NAV_VARIANTS = {
   split:    { name: 'Split Pill',         Comp: window.NavSplit },
 };
 
-const ACCENTS = ['#7C5BFD', '#FF4F8B', '#22C58A', '#FF9F0A'];
+const ACCENTS = ['#863dfb', '#FF4F8B', '#22C58A', '#FF9F0A'];
 
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [tab, setTab] = useState('home');
   const [composerOpen, setComposerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const [activeChip, setActiveChip] = useState('All');
   const [collapsed, setCollapsed] = useState(false);
   // Recipe detail page — when set, renders RecipeDetailScreen above the
   // current tab and hides the bottom nav. Cleared by the back button.
+  // `detailAutoOpen` mirrors the "auto-open the config sheet on mount"
+  // intent (used when a user taps a failed-generation notification to
+  // retry — we drop them straight onto the form pre-context).
   const [detailRecipe, setDetailRecipe] = useState(null);
+  const [detailAutoOpen, setDetailAutoOpen] = useState(false);
+  const openDetail = useCallback((recipe, opts) => {
+    setDetailAutoOpen(!!(opts && opts.autoOpenConfig));
+    setDetailRecipe(recipe);
+  }, []);
+  // Expose globally so the detail page's masonry can re-open into a
+  // different recipe without prop-drilling through Recipe components.
+  useEffect(() => {
+    window.__openRecipeDetail = (r) => openDetail(r);
+    return () => { if (window.__openRecipeDetail) delete window.__openRecipeDetail; };
+  }, [openDetail]);
   // Project chat — when set, opens ConversationScreen for the selected
   // project (Projects tab → tap an item).
   const [chatProject, setChatProject] = useState(null);
@@ -34,6 +49,9 @@ function App() {
   // long-presses a card or follows a share link — for the prototype it's
   // exposed via a Tweaks button and a long-press on a homepage card.
   const [shareViewRecipe, setShareViewRecipe] = useState(null);
+  // Medeo TV share page — reusable share destination opened from recipe
+  // detail, share/result page, and invite reward notifications.
+  const [sharePageRecipe, setSharePageRecipe] = useState(null);
 
   // Generation queue — items the user has sent to render. Each item is
   // { id, title, theme, image?, progress (0..1), eta }. The queue is
@@ -47,16 +65,100 @@ function App() {
   ]);
   const [queueOpen, setQueueOpen] = useState(false);
 
+  // Completed creations — populated as queue items finish. Rendered at
+  // the top of the Projects tab and clickable to play in ShareView.
+  const [completedCreations, setCompletedCreations] = useState([]);
+
+  // Notifications — start from the static seed in data.js. New "ready"
+  // notifications get prepended when a queue item finishes. Mark all
+  // unread → read when the user opens the Notification tab so the bell
+  // badge clears.
+  const seedNotifs = React.useMemo(() => (window.NOTIFICATIONS || []).slice(), []);
+  const [notifications, setNotifications] = useState(seedNotifs);
+  const unreadCount = notifications.filter((n) => n.unread).length;
+
+  // Credits balance — the source of truth for the Home header pill.
+  // Starts at the prototype baseline; bumps when an invite-reward event
+  // fires (see `onInviteReward`). Real product would sync from server.
+  const [credits, setCredits] = useState(333);
+  const [creditsReward, setCreditsReward] = useState(null);
+
+  // Toast — single in-app banner near the top of the phone. Slides in
+  // from the top, auto-dismisses after ~3.2s per spec (2.5–4s range).
+  // `kind` drives the icon, accent and action label:
+  //   'queued' — status only, no CTA
+  //   'ready'  — [View] → Share View
+  //   'failed' — [Retry] → re-enqueue (action button) / tap card → Detail
+  const [toast, setToast] = useState(null);
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+  const showToast = useCallback((t) => {
+    if (!t) return setToast(null);
+    setToast({ id: Date.now(), ...t });
+  }, []);
+  useEffect(() => {
+    window.__toast = showToast;
+    return () => { if (window.__toast === showToast) delete window.__toast; };
+  }, [showToast]);
+
+  // Handle a queue item finishing — add to completed list, prepend a
+  // 'ready' notification (so the bell badge increments), and fire the
+  // global "ready" toast that taps through to ShareView.
+  const onCreationComplete = useCallback((item) => {
+    const recipe = (window.RECIPES || []).find((r) => r.theme === item.theme) || {
+      id: item.id, title: item.title, theme: item.theme, image: item.image,
+    };
+    setCompletedCreations((c) => [{
+      id: 'c-' + item.id,
+      title: item.title,
+      theme: item.theme,
+      image: item.image || recipe.image,
+      recipe,
+      when: 'Just now',
+      completedAt: Date.now(),
+    }, ...c]);
+    setNotifications((n) => [{
+      id: 'n-' + item.id,
+      kind: 'ready', unread: true,
+      when: 'now',
+      title: 'Your creation is ready!',
+      body: `"${item.title}" has been generated successfully.`,
+      cta: 'View creation',
+      theme: item.theme,
+      image: item.image || recipe.image,
+    }, ...n]);
+    showToast({
+      kind: 'ready',
+      title: 'Your video is ready',
+      body: `"${item.title}"`,
+      image: item.image || recipe.image,
+      theme: item.theme,
+      recipe,
+    });
+  }, [showToast]);
+
   // Simulate background generation — bump every item's progress on a
-  // shared tick; completed items (progress ≥ 1) drop off the queue.
+  // shared tick. When an item crosses to ≥ 1, fire the completion
+  // side-effects (via microtask so we don't re-enter setState) and
+  // drop it from the queue.
   useEffect(() => {
     const id = setInterval(() => {
-      setQueue((q) => q
-        .map((it) => ({ ...it, progress: Math.min(1, it.progress + 0.012) }))
-        .filter((it) => it.progress < 1));
+      setQueue((q) => {
+        const next = q.map((it) => ({ ...it, progress: Math.min(1, it.progress + 0.012) }));
+        next.forEach((it, i) => {
+          const prev = q[i];
+          if (prev && prev.progress < 1 && it.progress >= 1) {
+            queueMicrotask(() => onCreationComplete(it));
+          }
+        });
+        return next.filter((it) => it.progress < 1);
+      });
     }, 350);
     return () => clearInterval(id);
-  }, []);
+  }, [onCreationComplete]);
 
   const enqueue = useCallback((recipe) => {
     if (!recipe) return;
@@ -70,11 +172,50 @@ function App() {
         progress: 0,
       },
     ]);
-  }, []);
+    showToast({
+      kind: 'queued',
+      title: 'Adding to your queue',
+      body: `"${recipe.title || 'New creation'}"`,
+      image: recipe.image,
+      theme: recipe.theme,
+    });
+  }, [showToast]);
 
   const dequeue = useCallback((id) => {
     setQueue((q) => q.filter((it) => it.id !== id));
   }, []);
+
+  // Invite-reward event — fires when a user's shared link results in a
+  // new signup. Three side-effects (one per surface in the § 7.1.2
+  // matrix's "invite_success" row):
+  //   • Toast/Push: celebratory in-app banner (kind: 'invite')
+  //   • Notification Center: prepend a persistent 'invite' card
+  //   • Credits balance: increment by `amount` so the Home header pill
+  //     reflects the reward immediately. Queue is untouched (invite
+  //     isn't a job, it's a reward event).
+  const onInviteReward = useCallback((amount = 50, inviteeName) => {
+    const id = 'inv-' + Date.now();
+    setCredits((c) => c + amount);
+    setCreditsReward({ id, amount });
+    setNotifications((n) => [{
+      id, kind: 'invite', unread: true, when: 'now',
+      title: `You earned ${amount} credits`,
+      body: inviteeName
+        ? `${inviteeName} joined Medeo via your shared link.`
+        : 'A friend joined Medeo via your shared link.',
+      cta: 'Share to earn more',
+      amount,
+      inviteeName,
+    }, ...n]);
+    showToast({
+      kind: 'invite',
+      title: `+${amount} credits earned`,
+      body: inviteeName
+        ? `${inviteeName} joined via your link`
+        : 'A friend joined via your link',
+      amount,
+    });
+  }, [showToast]);
 
   // Expose enqueue globally so screens (e.g. detail page CTA) can push
   // jobs without prop-drilling through every layer.
@@ -100,8 +241,16 @@ function App() {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     // Close the detail page if the user navigates via the bottom nav.
     setDetailRecipe(null);
+    setDetailAutoOpen(false);
     setChatProject(null);
     setShareViewRecipe(null);
+    // Opening the Notification tab clears the unread badge — read state
+    // is now consistent with the architecture doc's Subscription model.
+    if (tab === 'notif') {
+      setNotifications((ns) => ns.some((n) => n.unread)
+        ? ns.map((n) => ({ ...n, unread: false }))
+        : ns);
+    }
   }, [tab]);
 
   const NavComp = NAV_VARIANTS[t.navVariant]?.Comp || window.NavDock;
@@ -122,27 +271,34 @@ function App() {
             scrollRef={scrollRef} onScroll={onScroll}
             onTapInput={() => setComposerOpen(true)}
             onOpenProfile={() => setProfileOpen(true)}
-            onOpenRecipe={(recipe) => setDetailRecipe(recipe)}
+            onOpenCredits={() => setCreditsOpen(true)}
+            onOpenRecipe={(recipe) => openDetail(recipe)}
             onLongPressRecipe={(recipe) => setShareViewRecipe(recipe)}
             activeChip={activeChip} setActiveChip={setActiveChip}
             accent={accent}
+            credits={credits}
+            creditsReward={creditsReward}
           />
         )}
         {tab === 'projects' && (
           <ProjectsScreen
             scrollRef={scrollRef} onScroll={onScroll}
             onOpenProject={(p) => setChatProject(p)}
-            onBack={() => setTab('home')}
+            onOpenShareView={(recipe) => setShareViewRecipe(recipe)}
             accent={accent}
+            queue={queue}
+            completedCreations={completedCreations}
           />
         )}
         {tab === 'notif' && (
           <NotificationScreen
             scrollRef={scrollRef} onScroll={onScroll}
-            onOpenRecipe={(recipe) => setDetailRecipe(recipe)}
+            onOpenRecipe={(recipe, opts) => openDetail(recipe, opts)}
             onOpenShareView={(recipe) => setShareViewRecipe(recipe)}
-            onBack={() => setTab('home')}
+            onOpenSharePage={(recipe) => setSharePageRecipe(recipe)}
+            onGoHome={() => setTab('home')}
             accent={accent}
+            notifications={notifications}
           />
         )}
 
@@ -151,7 +307,8 @@ function App() {
         {detailRecipe && (
           <RecipeDetailScreen
             recipe={detailRecipe}
-            onBack={() => setDetailRecipe(null)}
+            autoOpenConfig={detailAutoOpen}
+            onBack={() => { setDetailRecipe(null); setDetailAutoOpen(false); }}
             onOpenShareView={(r) => setShareViewRecipe(r)}
           />
         )}
@@ -177,25 +334,21 @@ function App() {
             recipe={shareViewRecipe}
             accent={accent}
             onClose={() => setShareViewRecipe(null)}
-            onUseRecipe={(r) => {
-              // "Use this recipe" jumps straight to the work's recipe
-              // detail page so the user can review the inputs and remix.
-              setShareViewRecipe(null);
-              setDetailRecipe(r || shareViewRecipe);
-            }}
           />
         )}
 
-        {/* Nav — hidden while a recipe detail page is open.
-            Projects is now a true tab (renders the full-screen
-            ProjectsScreen above) rather than a sheet trigger, so
-            `onProjects` is no longer needed. `onProfile` is kept for
-            nav variants that still surface the avatar in the nav;
-            the homepage header now hosts the primary profile entry. */}
-        {/* Bottom nav lives ONLY on the home tab. Projects and
-            Notification render as standalone full-screen pages with
-            their own glass back button instead of the nav. */}
-        {tab === 'home' && !detailRecipe && !chatProject && !shareViewRecipe && (
+        {sharePageRecipe && (
+          <SharePage
+            recipe={sharePageRecipe}
+            onClose={() => setSharePageRecipe(null)}
+          />
+        )}
+
+        {/* Nav — persistent across the three first-level tabs:
+            Home / Creation / Notification. Hidden only for overlay
+            surfaces such as recipe detail, project conversation and
+            share view. */}
+        {['home', 'projects', 'notif'].includes(tab) && !detailRecipe && !chatProject && !shareViewRecipe && !sharePageRecipe && (
           <NavComp
             active={tab}
             onChange={(id) => setTab(id)}
@@ -203,9 +356,50 @@ function App() {
             onProfile={() => setProfileOpen(true)}
             queue={queue}
             onQueueClick={() => setQueueOpen((v) => !v)}
+            notifBadge={unreadCount}
             accent={accent}
             collapsed={collapsed}
             dark={t.theme === 'dark'}
+          />
+        )}
+
+        {/* Global toast — pinned near the top of the phone, above every
+            other surface. One2X Inverse Surface / Inverse On Surface
+            tokens. Auto-dismiss timer lives in App so a navigation
+            event can cancel it cleanly. */}
+        {toast && (
+          <ToastBanner
+            toast={toast}
+            accent={accent}
+            onTap={() => {
+              // Body tap — route to the natural destination for the
+              // kind. Ready → watch the result; Failed → review &
+              // adjust inputs in the config sheet before retrying;
+              // Invite → Home, where the credits header pill is the
+              // visible source of truth for the reward.
+              if (toast.kind === 'ready' && toast.recipe) {
+                setShareViewRecipe(toast.recipe);
+              } else if (toast.kind === 'failed' && toast.recipe) {
+                openDetail(toast.recipe, { autoOpenConfig: true });
+              } else if (toast.kind === 'invite') {
+                setTab('home');
+              }
+              setToast(null);
+            }}
+            onAction={() => {
+              // Explicit pill — failed now mirrors body tap: take the
+              // user to the config sheet to review inputs before retry.
+              // No direct enqueue, so no separate retry toast.
+              if (toast.kind === 'failed' && toast.recipe) {
+                openDetail(toast.recipe, { autoOpenConfig: true });
+              } else if (toast.kind === 'ready' && toast.recipe) {
+                setShareViewRecipe(toast.recipe);
+              } else if (toast.kind === 'invite') {
+                setTab('home');
+              }
+              setToast(null);
+            }}
+            onDismiss={() => setToast(null)}
           />
         )}
 
@@ -226,28 +420,31 @@ function App() {
             accent={accent}
             navHeight={90}
             onSend={(text) => {
-              // Build a lightweight project from the typed prompt so the
-              // existing ConversationScreen can render the chat. Empty
-              // prompts still navigate — the chat surface defaults the
-              // first user bubble to a generic ask.
+              // Free-create submit should behave like every other
+              // generation submit: enqueue + ambient feedback, then
+              // return to Home. Do not open ConversationScreen.
               const trimmed = (text || '').trim();
               const title = trimmed
                 ? (trimmed.length > 60 ? trimmed.slice(0, 60).trim() + '…' : trimmed)
                 : 'New creation';
-              const project = {
+              enqueue({
                 id: `composer-${Date.now()}`,
                 title,
                 theme: 'jelly',
                 image: null,
                 __userPrompt: trimmed,
-              };
+              });
               setComposerOpen(false);
-              setChatProject(project);
+              setTab('home');
+              setQueueOpen(false);
             }}
           />
         )}
         {profileOpen && (
           <ProfileSheet onClose={() => setProfileOpen(false)} accent={accent} />
+        )}
+        {creditsOpen && (
+          <CreditsSheet onClose={() => setCreditsOpen(false)} accent={accent} />
         )}
       </Phone>
       </div>
@@ -304,6 +501,43 @@ function App() {
             setProfileOpen(false); setComposerOpen(false);
           }} secondary />
         </TweakSection>
+        <TweakSection label="Toast & notifications">
+          <TweakButton label="Toast: Adding to queue" onClick={() => {
+            const pool = (window.RECIPES || []).filter((r) => r.image);
+            const pick = pool[Math.floor(Math.random() * pool.length)] || { title: 'New creation', theme: 'jelly' };
+            showToast({ kind: 'queued', title: 'Adding to your queue', body: `"${pick.title}"`, image: pick.image, theme: pick.theme });
+          }} secondary />
+          <TweakButton label="Toast: Video ready" onClick={() => {
+            const pool = (window.RECIPES || []).filter((r) => r.image);
+            const pick = pool[Math.floor(Math.random() * pool.length)] || (window.RECIPES || [])[0];
+            showToast({
+              kind: 'ready',
+              title: 'Your video is ready',
+              body: `"${pick.title}"`,
+              image: pick.image, theme: pick.theme, recipe: pick,
+            });
+          }} secondary />
+          <TweakButton label="Toast: Generation failed" onClick={() => {
+            const pool = (window.RECIPES || []).filter((r) => r.image);
+            const pick = pool[Math.floor(Math.random() * pool.length)] || (window.RECIPES || [])[0];
+            showToast({
+              kind: 'failed',
+              title: 'Generation failed',
+              body: `"${pick.title}" couldn't finish`,
+              image: pick.image, theme: pick.theme, recipe: pick,
+            });
+          }} secondary />
+          <TweakButton label="Invite reward: friend joined (+50)" onClick={() => {
+            // Picks a random name from a small pool so successive clicks
+            // produce visibly different inbox entries.
+            const names = ['Alex', 'Priya', 'Jordan', 'Mika', 'Sam', 'Wei'];
+            const name = names[Math.floor(Math.random() * names.length)];
+            onInviteReward(50, name);
+          }} secondary />
+          <TweakButton label="Reset unread badge" onClick={() => {
+            setNotifications((ns) => ns.map((n) => ({ ...n, unread: true })));
+          }} secondary />
+        </TweakSection>
       </TweaksPanel>
     </div>
   );
@@ -351,6 +585,152 @@ function Phone({ children, bg, dark }) {
           background: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.25)',
         }} />
       </div>
+    </div>
+  );
+}
+
+// ToastBanner — global in-app toast, top of the phone frame.
+// One2X DS mapping:
+//   • background = Surface/Inverse Surface  (#09090b)
+//   • foreground = Surface/Inverse On Surface  (#ffffff)
+//   • corner radius = --shape-radius-24
+//   • title    = label/large prominent  (14 / 600)
+//   • body     = label/medium           (12 / 500)
+// Visual borrows from the iOS push banner so the in-app + lock-screen
+// variants read as the same product surface (see image 10 mockup).
+function ToastBanner({ toast, accent, onTap, onAction, onDismiss }) {
+  if (!toast) return null;
+  const isReady = toast.kind === 'ready';
+  const isFailed = toast.kind === 'failed';
+  const isInvite = toast.kind === 'invite';
+  const tappable = isReady || isFailed || isInvite;
+  const theme = (window.CARD_THEMES || {})[toast.theme] || (window.CARD_THEMES || {}).jelly;
+
+  // Icon shown when no thumbnail is provided.
+  const fallbackGlyph = isFailed
+    ? <Icon.Warning size={18} color="#FFB4B4" />
+    : isReady
+      ? <Icon.Sparkle size={18} color="#FFFFFF" />
+      : isInvite
+        ? <Icon.Gift size={20} color="#F6B73B" stroke={2} />
+        : <Icon.Plus size={18} color="#FFFFFF" stroke={2.6} />;
+
+  return (
+    <div
+      role={tappable ? 'button' : 'status'}
+      tabIndex={tappable ? 0 : -1}
+      onClick={() => tappable ? onTap && onTap() : onDismiss && onDismiss()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          tappable ? onTap && onTap() : onDismiss && onDismiss();
+        }
+      }}
+      className="toast-banner"
+      style={{
+        position: 'absolute',
+        top: 56, left: 16, right: 16,
+        zIndex: 200,
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '10px 14px 10px 10px',
+        // One2X Inverse Surface
+        background: '#09090B',
+        color: '#FFFFFF',
+        borderRadius: 24,
+        boxShadow: '0 20px 50px rgba(0,0,0,0.32), 0 6px 14px rgba(0,0,0,0.22)',
+        border: '0.5px solid rgba(255,255,255,0.06)',
+        cursor: tappable ? 'pointer' : 'default',
+        WebkitTapHighlightColor: 'transparent',
+      }}>
+      {/* Thumbnail or fallback icon disc */}
+      <div style={{
+        width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+        overflow: 'hidden',
+        background: isInvite
+          ? 'linear-gradient(160deg, rgba(246, 183, 59, 0.22) 0%, rgba(246, 183, 59, 0.08) 100%)'
+          : toast.image ? '#000' : (theme && theme.bg) || 'rgba(255,255,255,0.10)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative',
+        border: isInvite ? '0.5px solid rgba(246, 183, 59, 0.4)' : 'none',
+      }}>
+        {isInvite ? (
+          fallbackGlyph
+        ) : toast.image ? (
+          <img src={toast.image} alt="" style={{
+            width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+            filter: isFailed ? 'saturate(0.4) brightness(0.7)' : 'none',
+          }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+        ) : (
+          fallbackGlyph
+        )}
+        {/* Tiny failure / success corner marker on top of thumbnails */}
+        {toast.image && (isFailed || isReady) && (
+          <div style={{
+            position: 'absolute', right: -2, bottom: -2,
+            width: 16, height: 16, borderRadius: 999,
+            background: isFailed ? '#FF4D4F' : (accent || '#7C5BFD'),
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 0 2px #09090B',
+          }}>
+            {isFailed
+              ? <Icon.Warning size={9} color="#fff" />
+              : <Icon.Sparkle size={9} color="#fff" />}
+          </div>
+        )}
+      </div>
+
+      {/* Text — title (label/large prominent) + body (label/medium) */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 14, lineHeight: '20px', fontWeight: 600, letterSpacing: 0.1,
+          color: '#FFFFFF',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{toast.title}</div>
+        {toast.body && (
+          <div style={{
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 12, lineHeight: '17px', fontWeight: 500, letterSpacing: 0.2,
+            color: 'rgba(255,255,255,0.72)',
+            marginTop: 2,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{toast.body}</div>
+        )}
+      </div>
+
+      {/* Trailing affordance — explicit action pill for tappable
+          toasts ('View' / 'Retry').
+            • ready  → [View]  same target as body tap → Share View
+            • failed → [Retry] re-enqueues directly (no navigation)
+                       while a body tap routes to Recipe Detail with
+                       the config sheet auto-open. This matches the
+                       Notification Inbox failed-card split (Retry pill
+                       vs. card body) so the mental model is identical
+                       across surfaces. */}
+      {tappable && (
+        <button
+          tabIndex={-1}
+          aria-hidden="true"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isFailed && onAction) onAction();
+            else if (onTap) onTap();
+          }}
+          style={{
+            flexShrink: 0,
+            height: 30, padding: '0 14px',
+            borderRadius: 999,
+            border: '0.5px solid rgba(255,255,255,0.22)',
+            background: 'rgba(255,255,255,0.10)',
+            color: '#FFFFFF',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 13, lineHeight: 1, fontWeight: 600, letterSpacing: 0.1,
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}>
+          {isFailed ? 'Retry' : 'View'}
+        </button>
+      )}
     </div>
   );
 }

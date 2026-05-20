@@ -1,6 +1,33 @@
 /* Medeo redesign — base styles */
 :root {
-  --accent: #7C5BFD;
+  /* One2X / Medeo light tokens (minimal local mirror of tokens/tokens.css
+     so this standalone prototype can run from /project as its web root). */
+  --color-schemes-primary: #863dfb;
+  --color-schemes-on-primary: #ffffff;
+  --color-schemes-error: #ba1a1a;
+  --color-surface-surface: #f4f4f5;
+  --color-surface-on-surface: #09090b;
+  --color-surface-on-surface-variant: #3f3f46;
+  --color-surface-outline: #d4d4d8;
+  --color-surface-outline-variant: #e4e4e7;
+  --color-surface-surface-container-lowest: #ffffff;
+  --color-surface-inverse-surface: #09090b;
+  --color-surface-inverse-on-surface: #ffffff;
+  --shape-radius-12: 12px;
+  --shape-radius-24: 24px;
+  --shape-radius-28: 28px;
+  --shape-radius-full: 1000px;
+  --type-label-large-prominent-size: 14px;
+  --type-label-large-prominent-leading: 20px;
+  --type-label-large-prominent-tracking: 0.1px;
+  --type-label-large-prominent-weight: 600;
+  --space-s2: 8px;
+  --space-s3: 12px;
+  --space-s4: 16px;
+  --space-s5: 20px;
+  --space-s6: 24px;
+
+  --accent: var(--color-schemes-primary);
   --accent-soft: #EDE6FF;
   --accent-deep: #5A3DD8;
   --text: #0A0A0A;
@@ -330,6 +357,22 @@ html, body { height: 100%; }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Global top-of-frame toast banner (One2X DS Snackbar) — slides down
+   from above the dynamic island + fades in. Auto-dismisses after 2s. */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-14px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)     scale(1); }
+}
+.toast-banner { animation: toastIn 280ms cubic-bezier(0.32, 0.72, 0, 1); }
+.toast-banner:hover {
+  transform: translateY(1px);
+  transition: transform 0.18s ease;
+}
+
+/* Projects "generating" thumbnail spinner — small dot ring on the
+   in-flight cards. Uses the existing @keyframes spin above. */
+.proj-spinner { animation: spin 0.9s linear infinite; }
+
 /* Bell with subtle ring */
 @keyframes ring {
   0%, 100% { transform: rotate(0); }
@@ -377,13 +420,13 @@ html, body { height: 100%; }
 
 /* Floating action button */
 .fab-purple {
-  background: linear-gradient(160deg, #9B7AFF 0%, #6B45F0 100%);
+  background: var(--color-schemes-primary);
   box-shadow:
     0 1px 0 rgba(255,255,255,0.45) inset,
     0 -1px 0 rgba(0,0,0,0.18) inset,
-    0 10px 24px rgba(95,55,225,0.45),
-    0 3px 8px rgba(95,55,225,0.3);
-  color: #fff;
+    0 10px 24px rgba(134,61,251,0.38),
+    0 3px 8px rgba(134,61,251,0.26);
+  color: var(--color-schemes-on-primary);
 }
 
 /* Status pill (credits) */
