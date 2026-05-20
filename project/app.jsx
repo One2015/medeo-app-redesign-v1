@@ -69,14 +69,6 @@ function App() {
   // the top of the Projects tab and clickable to play in ShareView.
   const [completedCreations, setCompletedCreations] = useState([]);
 
-  // Notifications — start from the static seed in data.js. New "ready"
-  // notifications get prepended when a queue item finishes. Mark all
-  // unread → read when the user opens the Notification tab so the bell
-  // badge clears.
-  const seedNotifs = React.useMemo(() => (window.NOTIFICATIONS || []).slice(), []);
-  const [notifications, setNotifications] = useState(seedNotifs);
-  const unreadCount = notifications.filter((n) => n.unread).length;
-
   // Credits balance — the source of truth for the Home header pill.
   // Starts at the prototype baseline; bumps when an invite-reward event
   // fires (see `onInviteReward`). Real product would sync from server.
@@ -104,9 +96,8 @@ function App() {
     return () => { if (window.__toast === showToast) delete window.__toast; };
   }, [showToast]);
 
-  // Handle a queue item finishing — add to completed list, prepend a
-  // 'ready' notification (so the bell badge increments), and fire the
-  // global "ready" toast that taps through to ShareView.
+  // Handle a queue item finishing — add to completed list and fire the
+  // global "ready" toast that taps directly through to ShareView.
   const onCreationComplete = useCallback((item) => {
     const recipe = (window.RECIPES || []).find((r) => r.theme === item.theme) || {
       id: item.id, title: item.title, theme: item.theme, image: item.image,
@@ -120,16 +111,6 @@ function App() {
       when: 'Just now',
       completedAt: Date.now(),
     }, ...c]);
-    setNotifications((n) => [{
-      id: 'n-' + item.id,
-      kind: 'ready', unread: true,
-      when: 'now',
-      title: 'Your creation is ready!',
-      body: `"${item.title}" has been generated successfully.`,
-      cta: 'View creation',
-      theme: item.theme,
-      image: item.image || recipe.image,
-    }, ...n]);
     showToast({
       kind: 'ready',
       title: 'Your video is ready',
@@ -186,27 +167,12 @@ function App() {
   }, []);
 
   // Invite-reward event — fires when a user's shared link results in a
-  // new signup. Three side-effects (one per surface in the § 7.1.2
-  // matrix's "invite_success" row):
-  //   • Toast/Push: celebratory in-app banner (kind: 'invite')
-  //   • Notification Center: prepend a persistent 'invite' card
-  //   • Credits balance: increment by `amount` so the Home header pill
-  //     reflects the reward immediately. Queue is untouched (invite
-  //     isn't a job, it's a reward event).
+  // new signup. V1 no longer stores this in an inbox; the feedback is
+  // the in-app toast plus the Home credits pill rolling upward.
   const onInviteReward = useCallback((amount = 50, inviteeName) => {
     const id = 'inv-' + Date.now();
     setCredits((c) => c + amount);
     setCreditsReward({ id, amount });
-    setNotifications((n) => [{
-      id, kind: 'invite', unread: true, when: 'now',
-      title: `You earned ${amount} credits`,
-      body: inviteeName
-        ? `${inviteeName} joined Medeo via your shared link.`
-        : 'A friend joined Medeo via your shared link.',
-      cta: 'Share to earn more',
-      amount,
-      inviteeName,
-    }, ...n]);
     showToast({
       kind: 'invite',
       title: `+${amount} credits earned`,
@@ -244,13 +210,6 @@ function App() {
     setDetailAutoOpen(false);
     setChatProject(null);
     setShareViewRecipe(null);
-    // Opening the Notification tab clears the unread badge — read state
-    // is now consistent with the architecture doc's Subscription model.
-    if (tab === 'notif') {
-      setNotifications((ns) => ns.some((n) => n.unread)
-        ? ns.map((n) => ({ ...n, unread: false }))
-        : ns);
-    }
   }, [tab]);
 
   const NavComp = NAV_VARIANTS[t.navVariant]?.Comp || window.NavDock;
@@ -290,18 +249,6 @@ function App() {
             completedCreations={completedCreations}
           />
         )}
-        {tab === 'notif' && (
-          <NotificationScreen
-            scrollRef={scrollRef} onScroll={onScroll}
-            onOpenRecipe={(recipe, opts) => openDetail(recipe, opts)}
-            onOpenShareView={(recipe) => setShareViewRecipe(recipe)}
-            onOpenSharePage={(recipe) => setSharePageRecipe(recipe)}
-            onGoHome={() => setTab('home')}
-            accent={accent}
-            notifications={notifications}
-          />
-        )}
-
         {/* Recipe detail — overlays the current tab when a card is tapped.
             Renders before <NavComp> so we can hide the nav while detail is up. */}
         {detailRecipe && (
@@ -344,11 +291,12 @@ function App() {
           />
         )}
 
-        {/* Nav — persistent across the three first-level tabs:
-            Home / Creation / Notification. Hidden only for overlay
+        {/* Nav — persistent across the first-level tabs:
+            Home / Creation. Notification Center is cut from v1; push
+            and in-app toast route directly to their destination. Hidden only for overlay
             surfaces such as recipe detail, project conversation and
             share view. */}
-        {['home', 'projects', 'notif'].includes(tab) && !detailRecipe && !chatProject && !shareViewRecipe && !sharePageRecipe && (
+        {['home', 'projects'].includes(tab) && !detailRecipe && !chatProject && !shareViewRecipe && !sharePageRecipe && (
           <NavComp
             active={tab}
             onChange={(id) => setTab(id)}
@@ -356,7 +304,7 @@ function App() {
             onProfile={() => setProfileOpen(true)}
             queue={queue}
             onQueueClick={() => setQueueOpen((v) => !v)}
-            notifBadge={unreadCount}
+            notifBadge={0}
             accent={accent}
             collapsed={collapsed}
             dark={t.theme === 'dark'}
@@ -484,7 +432,6 @@ function App() {
         <TweakSection label="Screens">
           <TweakButton label="Go to Home" onClick={() => { setTab('home'); setProfileOpen(false); setComposerOpen(false); }} />
           <TweakButton label="Go to Projects" onClick={() => { setTab('projects'); setProfileOpen(false); setComposerOpen(false); }} />
-          <TweakButton label="Go to Notifications" onClick={() => { setTab('notif'); setProfileOpen(false); setComposerOpen(false); }} />
           <TweakButton label="Open input (composer)" onClick={() => { setComposerOpen(true); setProfileOpen(false); }} secondary />
           <TweakButton label="Open Profile" onClick={() => { setProfileOpen(true); setComposerOpen(false); }} secondary />
           <TweakButton label={collapsed ? 'Expand nav' : 'Collapse nav (scroll)'} onClick={() => setCollapsed((c) => !c)} secondary />
@@ -501,7 +448,7 @@ function App() {
             setProfileOpen(false); setComposerOpen(false);
           }} secondary />
         </TweakSection>
-        <TweakSection label="Toast & notifications">
+        <TweakSection label="Toast & push demos">
           <TweakButton label="Toast: Adding to queue" onClick={() => {
             const pool = (window.RECIPES || []).filter((r) => r.image);
             const pick = pool[Math.floor(Math.random() * pool.length)] || { title: 'New creation', theme: 'jelly' };
@@ -533,9 +480,6 @@ function App() {
             const names = ['Alex', 'Priya', 'Jordan', 'Mika', 'Sam', 'Wei'];
             const name = names[Math.floor(Math.random() * names.length)];
             onInviteReward(50, name);
-          }} secondary />
-          <TweakButton label="Reset unread badge" onClick={() => {
-            setNotifications((ns) => ns.map((n) => ({ ...n, unread: true })));
           }} secondary />
         </TweakSection>
       </TweaksPanel>
@@ -699,14 +643,8 @@ function ToastBanner({ toast, accent, onTap, onAction, onDismiss }) {
       </div>
 
       {/* Trailing affordance — explicit action pill for tappable
-          toasts ('View' / 'Retry').
-            • ready  → [View]  same target as body tap → Share View
-            • failed → [Retry] re-enqueues directly (no navigation)
-                       while a body tap routes to Recipe Detail with
-                       the config sheet auto-open. This matches the
-                       Notification Inbox failed-card split (Retry pill
-                       vs. card body) so the mental model is identical
-                       across surfaces. */}
+          toasts. V1 has no notification center; toast actions route
+          directly to the destination. */}
       {tappable && (
         <button
           tabIndex={-1}

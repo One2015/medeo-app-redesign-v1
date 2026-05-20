@@ -115,31 +115,16 @@ function NavDock({ active, onChange, onCreate, onProfile, accent, collapsed, dar
 // Center pill (Home + Bell) + side FAB (Search) + side FAB (Create)
 // ──────────────────────────────────────────────────────────
 function NavWabi({ active, onChange, onCreate, onProjects, onProfile, queue, onQueueClick, notifBadge, accent, collapsed, dark }) {
-  // The center pill carries three full tab slots: Home, Creation
+  // The center pill carries two full tab slots: Home and Creation
   // (a.k.a. the "Projects" tab internally — kept as the prop / id
-  // name to avoid breaking the parent wiring), and Notification.
-  // All three swap the underlying tab (active = current tab), so
+  // name to avoid breaking the parent wiring).
+  // Both swap the underlying tab (active = current tab), so
   // the white pill indicator lands on whichever is selected.
   const tabs = [
     { id: 'home',     label: 'Home',
       icon: (a, c) => <Icon.Home filled={a} color={c} size={22}/> },
     { id: 'projects', label: 'Creation',
       icon: (a, c) => <Icon.Hamburger color={c} size={20} stroke={2}/> },
-    { id: 'notif',    label: 'Notification',
-      icon: (a, c) => (
-        <span style={{ position: 'relative', display: 'inline-flex' }}>
-          <Icon.Bell filled={a} color={c} size={22} hasDot={false}/>
-          {notifBadge > 0 && (
-            <span aria-hidden="true" style={{
-              position: 'absolute', top: -1, right: -2,
-              width: 8, height: 8, borderRadius: 999,
-              background: accent || '#7C5BFD',
-              border: '1.5px solid rgba(255,255,255,0.92)',
-              boxShadow: `0 1px 3px ${(accent || '#7C5BFD')}66`,
-            }} />
-          )}
-        </span>
-      ) },
   ];
   const slotW = 72;
   const scale = collapsed ? 0.88 : 1;
