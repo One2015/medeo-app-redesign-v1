@@ -19,6 +19,7 @@ const ACCENTS = ['#863dfb', '#FF4F8B', '#22C58A', '#FF9F0A'];
 
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [onboardingDone, setOnboardingDone] = useState(false);
   const [tab, setTab] = useState('home');
   const [composerOpen, setComposerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -281,6 +282,10 @@ function App() {
             recipe={shareViewRecipe}
             accent={accent}
             onClose={() => setShareViewRecipe(null)}
+            onOpenCreationLog={(r) => {
+              setChatProject(r);
+              setShareViewRecipe(null);
+            }}
           />
         )}
 
@@ -303,7 +308,7 @@ function App() {
             onCreate={() => setComposerOpen(true)}
             onProfile={() => setProfileOpen(true)}
             queue={queue}
-            onQueueClick={() => setQueueOpen((v) => !v)}
+            onQueueClick={tab === 'home' ? () => setQueueOpen((v) => !v) : undefined}
             notifBadge={0}
             accent={accent}
             collapsed={collapsed}
@@ -368,22 +373,23 @@ function App() {
             accent={accent}
             navHeight={90}
             onSend={(text) => {
-              // Free-create submit should behave like every other
-              // generation submit: enqueue + ambient feedback, then
-              // return to Home. Do not open ConversationScreen.
+              // Free-create submit starts the generation task, then opens
+              // the creation log. The result page is only reached by
+              // tapping the generated preview inside the conversation.
               const trimmed = (text || '').trim();
               const title = trimmed
                 ? (trimmed.length > 60 ? trimmed.slice(0, 60).trim() + '…' : trimmed)
                 : 'New creation';
-              enqueue({
+              const creation = {
                 id: `composer-${Date.now()}`,
                 title,
                 theme: 'jelly',
-                image: null,
+                image: (window.RECIPES && window.RECIPES[0] && window.RECIPES[0].image) || null,
                 __userPrompt: trimmed,
-              });
+              };
+              enqueue(creation);
               setComposerOpen(false);
-              setTab('home');
+              setChatProject(creation);
               setQueueOpen(false);
             }}
           />
@@ -393,6 +399,15 @@ function App() {
         )}
         {creditsOpen && (
           <CreditsSheet onClose={() => setCreditsOpen(false)} accent={accent} />
+        )}
+
+        {!onboardingDone && (
+          <OnboardingFlow
+            onComplete={() => {
+              setOnboardingDone(true);
+              setTab('home');
+            }}
+          />
         )}
       </Phone>
       </div>
@@ -434,6 +449,7 @@ function App() {
           <TweakButton label="Go to Projects" onClick={() => { setTab('projects'); setProfileOpen(false); setComposerOpen(false); }} />
           <TweakButton label="Open input (composer)" onClick={() => { setComposerOpen(true); setProfileOpen(false); }} secondary />
           <TweakButton label="Open Profile" onClick={() => { setProfileOpen(true); setComposerOpen(false); }} secondary />
+          <TweakButton label="Replay onboarding" onClick={() => { setOnboardingDone(false); setProfileOpen(false); setComposerOpen(false); }} secondary />
           <TweakButton label={collapsed ? 'Expand nav' : 'Collapse nav (scroll)'} onClick={() => setCollapsed((c) => !c)} secondary />
           <TweakButton label="Enqueue test job" onClick={() => {
             const samples = (window.RECIPES || []).slice(0, 6);

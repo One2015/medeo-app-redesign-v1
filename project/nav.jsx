@@ -61,12 +61,12 @@ function NavIconBtn({ active, onClick, color = '#0A0A0A', activeColor, accent, c
 
 // ──────────────────────────────────────────────────────────
 // VARIANT A — "iOS 26 Dock"
-// Single wide floating pill: Home / Bell / Create(+) / Avatar
+// Single wide floating pill: Home / Creation / Create(+) / Avatar
 // ──────────────────────────────────────────────────────────
 function NavDock({ active, onChange, onCreate, onProfile, accent, collapsed, dark }) {
   const tabs = [
     { id: 'home', label: 'Home', icon: (a, c) => <Icon.Home filled={a} color={c} size={24} stroke={2}/> },
-    { id: 'notif', label: 'Alerts', icon: (a, c) => <Icon.Bell filled={a} color={c} size={24} stroke={2} hasDot={!a}/> },
+    { id: 'projects', label: 'Creation', icon: (a, c) => <Icon.Hamburger color={c} size={22} stroke={2}/> },
   ];
   const slotW = 56;
   const idx = tabs.findIndex(t => t.id === active);
@@ -111,86 +111,98 @@ function NavDock({ active, onChange, onCreate, onProfile, accent, collapsed, dar
 }
 
 // ──────────────────────────────────────────────────────────
-// VARIANT B — "Wabi Floating Trio"
-// Center pill (Home + Bell) + side FAB (Search) + side FAB (Create)
+// VARIANT B — iOS native-style floating tab bar
+// Three slots: Home / Create / Creation
 // ──────────────────────────────────────────────────────────
 function NavWabi({ active, onChange, onCreate, onProjects, onProfile, queue, onQueueClick, notifBadge, accent, collapsed, dark }) {
-  // The center pill carries two full tab slots: Home and Creation
-  // (a.k.a. the "Projects" tab internally — kept as the prop / id
-  // name to avoid breaking the parent wiring).
-  // Both swap the underlying tab (active = current tab), so
-  // the white pill indicator lands on whichever is selected.
   const tabs = [
-    { id: 'home',     label: 'Home',
-      icon: (a, c) => <Icon.Home filled={a} color={c} size={22}/> },
-    { id: 'projects', label: 'Creation',
-      icon: (a, c) => <Icon.Hamburger color={c} size={20} stroke={2}/> },
+    { id: 'home', label: 'Home', kind: 'tab',
+      icon: (a, c) => <Icon.Home filled={a} color={c} size={22} stroke={2}/> },
+    { id: 'create', label: 'Create', kind: 'action',
+      icon: (a, c) => <Icon.Plus color={c} size={23} stroke={2.4}/> },
+    { id: 'projects', label: 'Creation', kind: 'tab',
+      icon: (a, c) => <Icon.Hamburger color={c} size={22} stroke={2}/> },
   ];
-  const slotW = 72;
+  const slotW = 76;
   const scale = collapsed ? 0.88 : 1;
 
-  // Per-tab fills per spec:
-  //   inactive → transparent (the frosted container shows through)
-  //   active   → 6% black overlay
-  const tabActiveBg = 'rgba(0, 0, 0, 0.06)';
-
   return (
-    <NavShell gap={12}>
-      {/* Center pill — frosted glass container provides the only
-          visible surface; inactive tabs are transparent so the
-          container background shows through. Active tab darkens by
-          6% black. */}
+    <NavShell>
       <div className="glass-wabi dock-shadow" style={{
-        display: 'inline-flex', alignItems: 'center', padding: 4, borderRadius: 999,
-        gap: 4,
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: 4,
+        borderRadius: 999,
+        gap: 0,
+        background: 'rgba(255, 255, 255, 0.82)',
+        border: '0.5px solid rgba(255, 255, 255, 0.88)',
+        boxShadow: '0 14px 28px rgba(20, 14, 60, 0.10), 0 2px 8px rgba(20, 14, 60, 0.06), inset 0 1px 0 rgba(255,255,255,0.96)',
         position: 'relative', transform: `scale(${scale})`,
         transition: 'transform 0.34s cubic-bezier(0.34, 1.4, 0.5, 1)',
       }}>
         {tabs.map((t) => {
-          const a = t.id === active;
-          const onClick = () => onChange(t.id);
+          const isCreate = t.kind === 'action';
+          const a = !isCreate && t.id === active;
+          const onClick = () => {
+            if (isCreate) onCreate && onCreate();
+            else onChange && onChange(t.id);
+          };
+          const fg = a ? accent : '#1F1A23';
           return (
             <button key={t.id} onClick={onClick} aria-label={t.label} style={{
-              width: slotW, height: 44,
+              width: slotW, height: 48,
               border: 'none', outline: 'none', padding: 0, margin: 0,
-              boxShadow: 'none',
-              background: a ? tabActiveBg : 'transparent',
-              backgroundClip: 'padding-box',
+              background: a ? 'rgba(134, 61, 251, 0.10)' : 'transparent',
               borderRadius: 999,
               cursor: 'pointer', display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 2,
               position: 'relative', zIndex: 1,
-              color: a ? '#0A0A0A' : '#3a3a44',
-              transition: 'background 0.18s ease, color 0.18s ease',
+              color: fg,
+              transition: 'background 0.18s ease, color 0.18s ease, transform 0.18s ease',
             }}>
-              {t.icon(a, a ? '#0A0A0A' : '#3a3a44')}
+              {t.id === 'projects' && queue && queue.length > 0 && (
+                <span aria-label={`${queue.length} generations in progress`} style={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 12,
+                  minWidth: 17,
+                  height: 17,
+                  padding: '0 4px',
+                  borderRadius: 999,
+                  background: accent,
+                  color: '#FFFFFF',
+                  border: '1.5px solid rgba(255,255,255,0.92)',
+                  boxShadow: '0 4px 10px rgba(134,61,251,0.28)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: '"Manrope", system-ui, sans-serif',
+                  fontSize: 10,
+                  lineHeight: '12px',
+                  fontWeight: 800,
+                  pointerEvents: 'none',
+                }}>{Math.min(queue.length, 9)}</span>
+              )}
+              <span style={{
+                height: 24,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transform: a ? 'scale(1.04)' : 'scale(1)',
+                transition: 'transform 0.22s cubic-bezier(0.34, 1.4, 0.5, 1)',
+              }}>
+                {t.icon(a, fg)}
+              </span>
               <span style={{
                 fontFamily: '"Manrope", system-ui, sans-serif',
-                fontSize: 10, fontWeight: 600, letterSpacing: -0.05,
+                fontSize: 10.5,
+                fontWeight: a ? 700 : 600,
+                letterSpacing: -0.05,
                 lineHeight: '12px',
               }}>{t.label}</span>
             </button>
           );
         })}
-      </div>
-
-      {/* Right FAB — Create, with an optional queue badge floating
-          just above it when generation jobs are in flight. */}
-      <div style={{
-        position: 'relative',
-        transform: `scale(${scale})`,
-        transition: 'transform 0.34s cubic-bezier(0.34, 1.4, 0.5, 1)',
-      }}>
-        {queue && queue.length > 0 && (
-          <QueueBadge queue={queue} accent={accent} onClick={onQueueClick} />
-        )}
-        <button onClick={onCreate} className="fab-purple dock-shadow" style={{
-          width: 52, height: 52, borderRadius: 999, border: 'none',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', padding: 0,
-        }} aria-label="Create">
-          <Icon.Plus size={24} color="#fff" stroke={2.6} />
-        </button>
       </div>
     </NavShell>
   );
@@ -260,8 +272,8 @@ function NavComposer({ active, onChange, onCreate, onProfile, accent, collapsed,
           <NavIconBtn active={active === 'home'} onClick={() => onChange('home')} accent={accent} w={48} h={42}>
             <Icon.Home filled={active === 'home'} color={active === 'home' ? '#0A0A0A' : '#3a3a44'} size={22}/>
           </NavIconBtn>
-          <NavIconBtn active={active === 'notif'} onClick={() => onChange('notif')} accent={accent} w={48} h={42}>
-            <Icon.Bell filled={active === 'notif'} color={active === 'notif' ? '#0A0A0A' : '#3a3a44'} size={22} hasDot={active !== 'notif'}/>
+          <NavIconBtn active={active === 'projects'} onClick={() => onChange('projects')} accent={accent} w={48} h={42}>
+            <Icon.Hamburger color={active === 'projects' ? '#0A0A0A' : '#3a3a44'} size={22} stroke={2}/>
           </NavIconBtn>
           <button onClick={onCreate} className="fab-purple" style={{
             width: 42, height: 42, borderRadius: 999, border: 'none',
@@ -289,8 +301,8 @@ function NavComposer({ active, onChange, onCreate, onProfile, accent, collapsed,
         <NavIconBtn active={active === 'home'} onClick={() => onChange('home')} accent={accent} w={42} h={42}>
           <Icon.Home filled={active === 'home'} color={active === 'home' ? '#0A0A0A' : '#3a3a44'} size={22}/>
         </NavIconBtn>
-        <NavIconBtn active={active === 'notif'} onClick={() => onChange('notif')} accent={accent} w={42} h={42}>
-          <Icon.Bell filled={active === 'notif'} color={active === 'notif' ? '#0A0A0A' : '#3a3a44'} size={22} hasDot={active !== 'notif'}/>
+        <NavIconBtn active={active === 'projects'} onClick={() => onChange('projects')} accent={accent} w={42} h={42}>
+          <Icon.Hamburger color={active === 'projects' ? '#0A0A0A' : '#3a3a44'} size={22} stroke={2}/>
         </NavIconBtn>
         <div onClick={onCreate} style={{
           flex: 1, height: 42, borderRadius: 999, cursor: 'pointer',
@@ -323,7 +335,7 @@ function NavSplit({ active, onChange, onCreate, onProfile, accent, collapsed, da
   const scale = collapsed ? 0.88 : 1;
   const tabs = [
     { id: 'home', label: 'Home', icon: (a, c) => <Icon.Home filled={a} color={c} size={20}/> },
-    { id: 'notif', label: 'Alerts', icon: (a, c) => <Icon.Bell filled={a} color={c} size={20} hasDot={!a}/> },
+    { id: 'projects', label: 'Creation', icon: (a, c) => <Icon.Hamburger color={c} size={20} stroke={2}/> },
   ];
   return (
     <NavShell gap={10}>

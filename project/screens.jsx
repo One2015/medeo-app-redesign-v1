@@ -678,9 +678,11 @@ function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onOpenShareView, o
         WebkitBackdropFilter: 'blur(14px) saturate(140%)',
       }}>
         <div style={{ padding: onBack ? '0 20px 0 68px' : '0 20px' }}>
-          <h1 className="h-recipe" style={{ margin: 0 }}>Creation</h1>
-          <div style={{ fontSize: 13.5, color: '#5C5C66', marginTop: 6, fontWeight: 400, lineHeight: 1.35 }}>
-            Your generations and saved drafts.
+          <div>
+            <h1 className="h-recipe" style={{ margin: 0 }}>Creation</h1>
+            <div style={{ fontSize: 13.5, color: '#5C5C66', marginTop: 6, fontWeight: 400, lineHeight: 1.35 }}>
+              Your generations and saved drafts.
+            </div>
           </div>
         </div>
       </div>
@@ -1601,68 +1603,6 @@ function RemixTextInputOverlay({ value, onChange, onClose }) {
           }}
         />
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto minmax(0, 1fr)',
-          alignItems: 'center',
-          marginTop: 14,
-          gap: 8,
-        }}>
-          <div style={{
-            minWidth: 0,
-            display: 'grid',
-            gridTemplateColumns: '44px 92px 44px 44px',
-            alignItems: 'center',
-            gap: 6,
-          }}>
-            <button aria-label="Add attachment" style={globalInputIconBtn}>
-              <Icon.Plus size={18} color="#1F1A23" stroke={2.2} />
-            </button>
-            <button aria-label="Aspect ratio" style={{
-              ...globalInputIconBtn,
-              width: 92,
-              padding: '0 10px',
-              gap: 6,
-            }}>
-              <Icon.Ratio size={16} color="#1F1A23" stroke={1.8} />
-              <span style={{
-                fontFamily: '"Manrope", system-ui, sans-serif',
-                fontSize: 15, lineHeight: '20px', fontWeight: 600,
-                color: '#1F1A23',
-              }}>16:9</span>
-            </button>
-            <button aria-label="3D" style={globalInputIconBtn}>
-              <Icon.Cube size={17} color="#1F1A23" stroke={1.8} />
-            </button>
-            <button aria-label="More" style={globalInputIconBtn}>
-              <Icon.Dots size={17} color="#1F1A23" />
-            </button>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              height: 48,
-              minWidth: 0,
-              width: '100%',
-              borderRadius: 'var(--shape-radius-full)',
-              border: 'none',
-              background: 'var(--color-schemes-primary)',
-              color: 'var(--color-schemes-on-primary)',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              cursor: 'pointer',
-              fontFamily: '"Manrope", system-ui, sans-serif',
-              fontSize: 16, lineHeight: '22px', fontWeight: 600,
-              boxShadow: '0 8px 22px rgba(134,61,251,0.32), inset 0 1px 1px rgba(255,255,255,0.36)',
-            }}
-          >
-            <Icon.Play2 size={14} color="var(--color-schemes-on-primary)" />
-            <span style={{
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}>Generate</span>
-          </button>
-        </div>
       </div>
 
       {Keyboard ? <Keyboard /> : null}
@@ -2994,7 +2934,7 @@ function SharePage({ recipe, onClose }) {
 // because they sit at different points in the share flow: ShareViewScreen
 // is for consumers viewing a creation, SharePage is for the creator
 // distributing it.
-function ShareViewScreen({ recipe, onClose, onUseRecipe, accent = '#7C5BFD' }) {
+function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, accent = '#7C5BFD' }) {
   const r = recipe || {};
   const theme = (window.CARD_THEMES && window.CARD_THEMES[r.theme]) || {};
   const bgColor = theme.bg || '#1A1A22';
@@ -3217,6 +3157,25 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, accent = '#7C5BFD' }) {
         <Icon.Back size={18} stroke={2.2} />
       </button>
 
+      {onOpenCreationLog && (
+        <button onClick={() => onOpenCreationLog(r)} aria-label="View creation log" style={{
+          position: 'absolute', top: 78, right: 20, zIndex: 30,
+          width: 50, height: 50, borderRadius: 999,
+          border: '1px solid rgba(56, 30, 114, 0.16)',
+          background: 'rgba(20, 18, 24, 0.16)',
+          backdropFilter: 'blur(10px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(10px) saturate(160%)',
+          boxShadow:
+            'inset 0 1px 1px rgba(255, 255, 255, 0.2), ' +
+            'inset 0 5px 10px rgba(255, 255, 255, 0.15)',
+          color: '#FFFFFF',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', padding: 0,
+        }}>
+          <Icon.Chat size={19} color="#FFFFFF" stroke={2} />
+        </button>
+      )}
+
       {/* Mute icon — pinned to the visible video area's bottom-right when
           the sheet is open (matches IG Reels position). Hidden when the
           original bottom overlay is showing because the overlay has its
@@ -3290,6 +3249,43 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, accent = '#7C5BFD' }) {
             <PromptChip variant="dark" />
             {' and ...'}
           </div>
+          {onOpenCreationLog && (
+            <div style={{
+              marginTop: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              minWidth: 0,
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 11.5,
+              lineHeight: '18px',
+              fontWeight: 600,
+              color: 'rgba(255,255,255,0.72)',
+              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+            }}>
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Created from "{title}"
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenCreationLog(r);
+                }}
+                style={{
+                  border: 'none',
+                  padding: 0,
+                  background: 'transparent',
+                  color: '#E0CCFF',
+                  font: 'inherit',
+                  fontWeight: 800,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                }}
+              >
+                View creation log
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Scrubber row — 0:01 ──●──────── 0:16  [mute] */}
@@ -3448,6 +3444,48 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, accent = '#7C5BFD' }) {
             {' and ...'}
           </p>
 
+          {onOpenCreationLog && (
+            <button
+              onClick={() => onOpenCreationLog(r)}
+              style={{
+                width: '100%',
+                minHeight: 44,
+                borderRadius: 14,
+                border: '0.5px solid rgba(224, 204, 255, 0.24)',
+                background: 'rgba(224, 204, 255, 0.10)',
+                color: '#E0CCFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                padding: '10px 12px',
+                margin: '0 0 18px',
+                cursor: 'pointer',
+                fontFamily: '"Manrope", system-ui, sans-serif',
+              }}
+            >
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 13,
+                lineHeight: '18px',
+                fontWeight: 700,
+              }}>
+                <Icon.Chat size={16} color="#E0CCFF" stroke={2} />
+                View creation log
+              </span>
+              <span style={{
+                fontSize: 11.5,
+                lineHeight: '16px',
+                fontWeight: 600,
+                color: 'rgba(255,255,255,0.55)',
+              }}>
+                prompt & progress
+              </span>
+            </button>
+          )}
+
           {/* Section heading */}
           <div style={{
             margin: '8px 0 6px',
@@ -3570,6 +3608,473 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, accent = '#7C5BFD' }) {
   );
 }
 
+// ──────────────────────────────────────────────
+// Onboarding flow — sign in + 3-question survey + welcome.
+// ──────────────────────────────────────────────
+function OnboardingFlow({ onComplete }) {
+  const [step, setStep] = React.useState(0);
+  const [answers, setAnswers] = React.useState({
+    source: 'Google',
+    role: 'Content Creator (e.g., YouTuber, influencer)',
+    goal: 'Monetizing videos for income',
+  });
+
+  const questions = [
+    {
+      key: 'source',
+      title: 'How did you hear\nabout Medeo?',
+      options: ['Google', 'LinkedIn', 'Wechat', 'Douyin', 'Friend/\nColleague', 'TikTok', 'Instagram', 'Readnote', 'X/Twitter', 'YouTube', 'Other'],
+      columns: 2,
+    },
+    {
+      key: 'role',
+      title: 'What best describes your\ncurrent role?',
+      options: [
+        'Content Creator (e.g., YouTuber,\ninfluencer)',
+        'Knowledge Seller (e.g., course\ncreator, online educator)',
+        'Marketing Professional (e.g., digital\nmarketer, advertiser)',
+        'Social Media Manager',
+        'Entrepreneur/Business Owner',
+        'Other',
+      ],
+      columns: 1,
+    },
+    {
+      key: 'goal',
+      title: 'What is your main goal for\nusing Medeo?',
+      options: [
+        'Monetizing videos for income',
+        'Promoting products or services',
+        'Searching for video footage more\nefficiently',
+        'Creating training or educational\nvideos',
+        'Personal interest',
+        'Other (Please specify)',
+      ],
+      columns: 1,
+    },
+  ];
+
+  if (step === 0) {
+    return (
+      <div className="screen-fade" style={{
+        position: 'absolute', inset: 0, zIndex: 210,
+        background: '#F7F2FD',
+        overflow: 'hidden',
+      }}>
+        <IOSStatusBar />
+        <div aria-hidden="true" style={{
+          position: 'absolute', inset: -30,
+          opacity: 0.24,
+          filter: 'blur(1px)',
+          transform: 'rotate(-10deg) scale(1.08)',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 12,
+          padding: '78px 18px',
+        }}>
+          {(window.RECIPES || []).slice(0, 6).map((r) => (
+            <div key={r.id} style={{
+              height: 220,
+              borderRadius: 28,
+              background: r.image ? `url(${r.image}) center / cover` : ((window.CARD_THEMES[r.theme] || {}).bg || '#E9DEF7'),
+            }} />
+          ))}
+        </div>
+        <div aria-hidden="true" style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.68), rgba(247,242,253,0.84))',
+        }} />
+        <div style={{
+          position: 'relative', zIndex: 1, height: '100%',
+          display: 'flex', flexDirection: 'column',
+          padding: '92px 38px 34px',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 17, fontWeight: 800, color: '#09090B',
+          }}>
+            <span style={{ fontSize: 24, color: 'var(--color-schemes-primary)' }}>✾</span>
+            Medeo
+          </div>
+          <div style={{ marginTop: 118, textAlign: 'center' }}>
+            <h1 style={{
+              margin: 0,
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 31,
+              lineHeight: '38px',
+              fontWeight: 800,
+              letterSpacing: -1.1,
+              color: '#09090B',
+            }}>One Click to <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontWeight: 500 }}>Pro Videos</span></h1>
+            <p style={{
+              margin: '14px 0 0',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 17,
+              lineHeight: '24px',
+              color: '#8A838F',
+              fontWeight: 500,
+            }}>Make great videos by chatting with AI</p>
+          </div>
+          <div style={{ flex: 1 }} />
+          <p style={{
+            margin: '0 0 18px',
+            textAlign: 'center',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 14.5,
+            lineHeight: '21px',
+            color: '#8A838F',
+            fontWeight: 600,
+          }}>Keep your creations, credits, and generated videos<br />in sync across all your devices.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <OnboardingAuthButton dark icon="" label="Continue with Apple" onClick={() => setStep(1)} />
+            <OnboardingAuthButton blue icon="G" label="Continue with Google" onClick={() => setStep(1)} />
+            <OnboardingAuthButton label="Continue with phone number" onClick={() => setStep(1)} />
+            <OnboardingAuthButton ghost label="Continue without an account" onClick={() => setStep(1)} />
+          </div>
+          <div style={{
+            display: 'flex', justifyContent: 'space-between',
+            marginTop: 18,
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 12.5,
+            lineHeight: '18px',
+            color: '#625B66',
+          }}>
+            <span>Terms of Use</span>
+            <span>Privacy Policy</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step >= 1 && step <= 3) {
+    const q = questions[step - 1];
+    return (
+      <div className="screen-fade" style={{
+        position: 'absolute', inset: 0, zIndex: 210,
+        background: '#F4F4F5',
+        overflow: 'hidden',
+      }}>
+        <IOSStatusBar />
+        <div style={{ padding: '88px 36px 0' }}>
+          <div style={{ height: 4, borderRadius: 999, background: '#E6D7FF', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: `${(step / 3) * 100}%`,
+              background: 'var(--color-schemes-primary)',
+              borderRadius: 999,
+              transition: 'width 0.26s ease',
+            }} />
+          </div>
+          <h1 style={{
+            margin: '20px 0 22px',
+            whiteSpace: 'pre-line',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 26,
+            lineHeight: '27px',
+            fontWeight: 800,
+            letterSpacing: -1,
+            color: '#09090B',
+          }}>{q.title}</h1>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: q.columns === 2 ? '1fr 1fr' : '1fr',
+            background: '#FFFFFF',
+            borderRadius: 20,
+            overflow: 'hidden',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+          }}>
+            {q.options.map((opt, i) => {
+              const selected = answers[q.key] === opt;
+              return (
+                <button
+                  key={opt}
+                  onClick={() => setAnswers((a) => ({ ...a, [q.key]: opt }))}
+                  style={{
+                    minHeight: q.columns === 2 ? 65 : 68,
+                    border: 'none',
+                    borderRight: q.columns === 2 && i % 2 === 0 ? '0.5px solid rgba(0,0,0,0.08)' : 'none',
+                    borderBottom: i < q.options.length - q.columns ? '0.5px solid rgba(0,0,0,0.08)' : 'none',
+                    background: '#FFFFFF',
+                    padding: '12px 16px',
+                    textAlign: 'left',
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{
+                    width: 22, height: 22, borderRadius: 7,
+                    border: selected ? 'none' : '1.5px dashed #D6D6DA',
+                    background: selected ? '#09090B' : '#FFFFFF',
+                    color: '#FFFFFF',
+                    flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, fontWeight: 800,
+                  }}>{selected ? '✓' : ''}</span>
+                  <span style={{
+                    whiteSpace: 'pre-line',
+                    fontFamily: '"Manrope", system-ui, sans-serif',
+                    fontSize: 17,
+                    lineHeight: '22px',
+                    fontWeight: 600,
+                    color: '#1F1A23',
+                    letterSpacing: -0.2,
+                  }}>{opt}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{
+          position: 'absolute', left: 38, right: 38, bottom: 54,
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+        }}>
+          <button
+            onClick={() => setStep(Math.max(1, step - 1))}
+            disabled={step === 1}
+            style={{
+              height: 54, borderRadius: 'var(--shape-radius-full)',
+              border: '0.5px solid rgba(0,0,0,0.06)',
+              background: '#FFFFFF',
+              color: step === 1 ? '#D4D4D8' : '#09090B',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 17, fontWeight: 600,
+              cursor: step === 1 ? 'default' : 'pointer',
+            }}
+          >Previous</button>
+          <button
+            onClick={() => setStep(step === 3 ? 4 : step + 1)}
+            style={{
+              height: 54, borderRadius: 'var(--shape-radius-full)',
+              border: 'none', background: '#09090B', color: '#FFFFFF',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 17, fontWeight: 600, cursor: 'pointer',
+            }}
+          >Next</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 4) {
+    return (
+      <div className="screen-fade" style={{
+        position: 'absolute', inset: 0, zIndex: 210,
+        background: '#F4F4F5',
+        overflow: 'hidden',
+      }}>
+        <IOSStatusBar />
+        <div style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
+          padding: '78px 36px 72px',
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginTop: 22,
+          }}>
+            <div style={{
+              width: 108,
+              height: 108,
+              borderRadius: 32,
+              background: 'linear-gradient(160deg, rgba(134,61,251,0.16), rgba(224,204,255,0.42))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 18px 48px rgba(134,61,251,0.16), inset 0 1px 1px rgba(255,255,255,0.72)',
+            }}>
+              <div style={{
+                width: 72,
+                height: 72,
+                borderRadius: 24,
+                background: 'var(--color-schemes-primary)',
+                color: 'var(--color-schemes-on-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 12px 32px rgba(134,61,251,0.32)',
+              }}>
+                <Icon.Bell size={34} color="currentColor" stroke={2.1} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 38, textAlign: 'center' }}>
+            <h1 style={{
+              margin: 0,
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 29,
+              lineHeight: '34px',
+              fontWeight: 800,
+              letterSpacing: -0.9,
+              color: '#09090B',
+            }}>Don’t miss your<br />creation moments</h1>
+            <p style={{
+              margin: '16px auto 0',
+              maxWidth: 300,
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 15.5,
+              lineHeight: '23px',
+              fontWeight: 600,
+              color: '#7A737F',
+            }}>We’ll only notify you when something important happens.</p>
+          </div>
+
+          <div style={{
+            marginTop: 28,
+            background: '#FFFFFF',
+            borderRadius: 22,
+            overflow: 'hidden',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+          }}>
+            {[
+              ['✨', 'Your video is ready to watch'],
+              ['⚠️', 'A generation failed and needs review'],
+              ['🧪', 'New recipes are available'],
+              ['⚡', 'Invite rewards arrive in your credits'],
+            ].map(([emoji, text], i, arr) => (
+              <div key={text} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                minHeight: 54,
+                padding: '10px 16px',
+                borderBottom: i < arr.length - 1 ? '0.5px solid rgba(0,0,0,0.08)' : 'none',
+              }}>
+                <span style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 999,
+                  background: 'rgba(134,61,251,0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 16,
+                  flexShrink: 0,
+                }}>{emoji}</span>
+                <span style={{
+                  fontFamily: '"Manrope", system-ui, sans-serif',
+                  fontSize: 15,
+                  lineHeight: '21px',
+                  fontWeight: 600,
+                  color: '#1F1A23',
+                }}>{text}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ flex: 1 }} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <button
+              onClick={() => setStep(5)}
+              style={{
+                height: 56,
+                borderRadius: 'var(--shape-radius-full)',
+                border: 'none',
+                background: '#09090B',
+                color: '#FFFFFF',
+                fontFamily: '"Manrope", system-ui, sans-serif',
+                fontSize: 17,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >Allow notifications</button>
+            <button
+              onClick={() => setStep(5)}
+              style={{
+                height: 52,
+                borderRadius: 'var(--shape-radius-full)',
+                border: '0.5px solid rgba(0,0,0,0.08)',
+                background: '#FFFFFF',
+                color: '#3F3F46',
+                fontFamily: '"Manrope", system-ui, sans-serif',
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >Not now</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen-fade" style={{
+      position: 'absolute', inset: 0, zIndex: 210,
+      background: '#F4F4F5',
+      overflow: 'hidden',
+    }}>
+      <IOSStatusBar />
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '0 40px', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 42, lineHeight: '48px', marginBottom: 20 }}>🎉</div>
+        <h1 style={{
+          margin: 0,
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 29,
+          lineHeight: '36px',
+          fontWeight: 800,
+          color: '#09090B',
+          letterSpacing: -0.9,
+        }}>Welcome to Medeo!</h1>
+        <p style={{
+          margin: '20px 0 0',
+          maxWidth: 300,
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 16,
+          lineHeight: '24px',
+          fontWeight: 600,
+          color: '#8A838F',
+        }}>Can’t wait to see your amazing creations on Medeo.</p>
+      </div>
+      <button onClick={onComplete} style={{
+        position: 'absolute', left: 38, right: 38, bottom: 54,
+        height: 56,
+        borderRadius: 'var(--shape-radius-full)',
+        border: 'none',
+        background: '#09090B',
+        color: '#FFFFFF',
+        fontFamily: '"Manrope", system-ui, sans-serif',
+        fontSize: 17,
+        fontWeight: 600,
+        cursor: 'pointer',
+      }}>Start Now</button>
+    </div>
+  );
+}
+
+function OnboardingAuthButton({ label, icon, dark, blue, ghost, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      height: 64,
+      borderRadius: 'var(--shape-radius-full)',
+      border: ghost ? '0.5px solid rgba(9,9,11,0.10)' : 'none',
+      background: dark ? '#09090B' : blue ? '#2E5FFF' : ghost ? 'rgba(255,255,255,0.24)' : '#FFFFFF',
+      color: dark || blue ? '#FFFFFF' : '#09090B',
+      fontFamily: '"Manrope", system-ui, sans-serif',
+      fontSize: 17,
+      lineHeight: '24px',
+      fontWeight: 700,
+      cursor: 'pointer',
+      boxShadow: ghost ? 'none' : '0 2px 8px rgba(60,40,140,0.06)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+    }}>
+      {icon && <span style={{ fontSize: icon === 'G' ? 19 : 20, fontWeight: 800 }}>{icon}</span>}
+      {label}
+    </button>
+  );
+}
+
 function PhotoPermissionDialog({
   title,
   body,
@@ -3654,4 +4159,5 @@ window.ShareViewScreen = ShareViewScreen;
 window.ConversationScreen = ConversationScreen;
 window.NotificationScreen = NotificationScreen;
 window.RecipeDetailScreen = RecipeDetailScreen;
+window.OnboardingFlow = OnboardingFlow;
 window.RecipeCard = RecipeCard;
