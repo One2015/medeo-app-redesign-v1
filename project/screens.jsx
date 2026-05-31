@@ -835,9 +835,9 @@ function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onOpenShareView, o
         paddingTop: 124, paddingBottom: onBack ? 48 : 140,
       }}>
         {/* Generating section — only renders when there are in-flight
-            jobs. Cards show progress + ETA. Tapping enters the chat /
-            log view (existing behaviour) so the user can watch loading
-            state in the conversation surface. */}
+            jobs. Cards show progress + ETA. Tapping opens the result page
+            in its "creating" state; the chat icon there leads to the
+            conversation/log. */}
         {liveQueue.length > 0 && (
           <div style={{ padding: '4px 16px 0' }}>
             <ProjectsSectionLabel text="Generating" count={liveQueue.length} accent={accent} />
@@ -852,9 +852,11 @@ function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onOpenShareView, o
                   item={q}
                   accent={accent}
                   isGenerating
-                  onTap={() => onOpenProject && onOpenProject({
+                  onTap={() => onOpenShareView && onOpenShareView({
                     id: q.id, title: q.title, theme: q.theme, image: q.image,
-                    __isGenerating: true,
+                    fromRecipe: !!q.fromRecipe,
+                    __generating: true,
+                    progress: q.progress,
                     __userPrompt: q.title,
                   })}
                 />
@@ -3290,6 +3292,11 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onEditRecipe, onOpenCre
   const credits = typeof r.credits === 'number' ? r.credits : 12;
   // Mock playhead — 0:01 out of a 0:16 clip, ~6% played. Matches Figma.
   const PROGRESS = 0.06;
+  // "Creating" state — the result page opened from a still-generating
+  // CreateSpace card. Shows a building indicator instead of playback /
+  // download controls; the chat icon still routes to the conversation.
+  const isCreating = !!r.__generating;
+  const creatingPct = Math.round((typeof r.progress === 'number' ? r.progress : 0) * 100);
 
   const saveToPhotos = React.useCallback(() => {
     try {
@@ -3468,8 +3475,44 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onEditRecipe, onOpenCre
               width: '100%', height: '100%',
               objectFit: 'contain', objectPosition: 'center',
               pointerEvents: 'none', userSelect: 'none',
+              filter: isCreating ? 'brightness(0.5) saturate(0.85)' : 'none',
             }}
           />
+        )}
+        {isCreating && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            gap: 16, padding: '0 40px', textAlign: 'center',
+            pointerEvents: 'none',
+          }}>
+            <div className="proj-spinner" style={{
+              width: 44, height: 44, borderRadius: 999,
+              border: '3px solid rgba(255,255,255,0.28)',
+              borderTopColor: '#FFFFFF',
+            }} />
+            <div style={{
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 18, fontWeight: 800, color: '#FFFFFF',
+              letterSpacing: -0.3, textShadow: '0 1px 3px rgba(0,0,0,0.4)',
+            }}>Creating your video…</div>
+            <div style={{
+              width: 180, height: 4, borderRadius: 999,
+              background: 'rgba(255,255,255,0.24)', overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${Math.max(6, creatingPct)}%`, height: '100%',
+                borderRadius: 999, background: '#FFFFFF',
+                transition: 'width 0.3s linear',
+              }} />
+            </div>
+            <div style={{
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.82)',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+            }}>{creatingPct}% · open chat to follow along</div>
+          </div>
         )}
       </div>
 
@@ -3633,7 +3676,9 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onEditRecipe, onOpenCre
           </div>
         </div>
 
-        {/* Scrubber row — 0:01 ──●──────── 0:16  [mute] */}
+        {/* Scrubber row — 0:01 ──●──────── 0:16  [mute]. Hidden while the
+            video is still being created (nothing to scrub yet). */}
+        {!isCreating && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '0 8px 0 20px',
@@ -3672,8 +3717,43 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onEditRecipe, onOpenCre
             <Icon.VolumeOff size={20} color="#FFFFFF" />
           </button>
         </div>
+        )}
 
-        {/* Action row — primary CTA fills, two circular actions trail */}
+        {/* Action row — while creating, a single disabled status pill +
+            the chat shortcut; once ready, the Edit / Download / Share row. */}
+        {isCreating ? (
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            gap: 8, padding: '12px 12px 40px',
+          }}>
+            <div style={{
+              flex: 1, height: 50, borderRadius: 999,
+              background: 'rgba(255,255,255,0.12)',
+              border: '0.5px solid rgba(255,255,255,0.18)',
+              color: 'rgba(255,255,255,0.9)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 14, fontWeight: 700, letterSpacing: 0.1,
+              backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+            }}>
+              <span className="proj-spinner" style={{
+                width: 16, height: 16, borderRadius: 999,
+                border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff',
+                display: 'inline-block',
+              }} />
+              Creating… {creatingPct}%
+            </div>
+            {onOpenCreationLog && (
+              <button
+                aria-label="Open creation chat"
+                onClick={() => onOpenCreationLog(r)}
+                style={glassIconBtn}
+              >
+                <Icon.Chat size={18} color="#FFFFFF" stroke={2} />
+              </button>
+            )}
+          </div>
+        ) : (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
           gap: 8, padding: '12px 12px 40px',
@@ -3728,6 +3808,7 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onEditRecipe, onOpenCre
             <Icon.Share size={18} color="#FFFFFF" stroke={1.8} />
           </button>
         </div>
+        )}
       </div>
 
       {/* Xiaohongshu-style description sheet ───────────────────────────
