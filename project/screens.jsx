@@ -140,6 +140,187 @@ function RecipeCard({ recipe, onClick, onLongPress }) {
   );
 }
 
+function RecipeResultCard({ item, onClick }) {
+  const theme = (window.CARD_THEMES && window.CARD_THEMES[item.theme]) || (window.CARD_THEMES && window.CARD_THEMES.jelly) || {};
+  const [imageFailed, setImageFailed] = React.useState(false);
+  const hasImage = item.image && !imageFailed;
+
+  return (
+    <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={() => onClick && onClick(item)}
+      onKeyDown={onClick ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(item); }
+      } : undefined}
+      style={{
+        width: '100%',
+        cursor: onClick ? 'pointer' : 'default',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+      }}
+    >
+      <div style={{
+        width: '100%',
+        aspectRatio: item.aspect || '4 / 5',
+        borderRadius: 18,
+        overflow: 'hidden',
+        position: 'relative',
+        background: hasImage ? '#F4F4F5' : theme.bg,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(20,8,60,0.08)',
+      }}>
+        {hasImage ? (
+          <img
+            src={item.image}
+            alt={item.title}
+            onError={() => setImageFailed(true)}
+            draggable={false}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          <>
+            <div style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 14px)',
+            }} />
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 14, textAlign: 'center',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 12, lineHeight: '16px', fontWeight: 700,
+              color: 'rgba(31,26,35,0.46)',
+            }}>{theme.label || item.title}</div>
+          </>
+        )}
+        <div style={{
+          position: 'absolute', top: 8, left: 8,
+          height: 24, padding: '0 8px',
+          borderRadius: 999,
+          background: 'rgba(20,18,24,0.34)',
+          backdropFilter: 'blur(8px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(8px) saturate(150%)',
+          color: '#FFFFFF',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 11, lineHeight: '14px', fontWeight: 700,
+          boxShadow: 'inset 0 0.5px 0.5px rgba(255,255,255,0.38)',
+        }}>
+          <Icon.Sparkles size={12} color="#FFFFFF" />
+          Recipe
+        </div>
+      </div>
+      <div style={{ padding: '7px 4px 2px' }}>
+        <div style={{
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 12.5, lineHeight: '17px', fontWeight: 700,
+          color: '#1F1A23', letterSpacing: 0.1,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}>{item.title}</div>
+        <div style={{
+          marginTop: 2,
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 11.5, lineHeight: '15px', fontWeight: 600,
+          color: '#71717A', letterSpacing: 0.1,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{item.creator}</div>
+      </div>
+    </div>
+  );
+}
+
+function CommunityRecipeResultsScreen({ title, results, onBack, onOpenShareView }) {
+  const columns = React.useMemo(() => ({
+    L: (results || []).filter((_, idx) => idx % 2 === 0),
+    R: (results || []).filter((_, idx) => idx % 2 === 1),
+  }), [results]);
+
+  return (
+    <div className="screen-fade" style={{
+      position: 'absolute',
+      inset: 0,
+      zIndex: 12,
+      background: '#FFFFFF',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        padding: '52px 20px 14px',
+        background: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(18px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+        zIndex: 2,
+      }}>
+        <button
+          onClick={onBack}
+          aria-label="Back"
+          className="glass-wabi"
+          style={{
+            position: 'absolute',
+            left: 16, top: 48,
+            width: 40, height: 40, borderRadius: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            background: 'rgba(255,255,255,0.88)',
+            boxShadow: '0 8px 24px rgba(20,8,60,0.10)',
+          }}
+        >
+          <Icon.Back size={18} color="#1A1A22" stroke={2} />
+        </button>
+        <div style={{ paddingLeft: 48 }}>
+          <div style={{
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 12, lineHeight: '16px', fontWeight: 700,
+            color: '#71717A',
+            letterSpacing: 0.2,
+          }}>Community creations</div>
+          <h2 style={{
+            margin: '2px 0 0',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 21, lineHeight: '27px', fontWeight: 800,
+            color: '#09090B',
+            letterSpacing: -0.25,
+          }}>{title}</h2>
+        </div>
+      </div>
+
+      <div className="phone-scroll" style={{
+        position: 'absolute',
+        inset: 0,
+        overflow: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        padding: '126px 20px 28px',
+      }}>
+        <div style={{
+          display: 'flex', gap: 8, alignItems: 'flex-start',
+        }}>
+          {['L', 'R'].map((col) => (
+            <div key={col} style={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}>
+              {columns[col].map((item) => (
+                <RecipeResultCard
+                  key={item.id}
+                  item={item}
+                  onClick={(result) => onOpenShareView && onOpenShareView(result)}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ──────────────────────────────────────────────
 // Home — 1:1 Figma node 17430:15227 (Homepage).
 //   Top section (absolute, top:0) houses the status bar, header (Recipe
@@ -1692,9 +1873,11 @@ function RecipePreviewVideo({ recipe, height = 480, onBack }) {
 function RecipeDetailScreen({ recipe, onBack, onOpenShareView, autoOpenConfig }) {
   const [configOpen, setConfigOpen] = React.useState(!!autoOpenConfig);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [communityOpen, setCommunityOpen] = React.useState(false);
   React.useEffect(() => {
     setConfigOpen(!!autoOpenConfig);
     setShareOpen(false);
+    setCommunityOpen(false);
   }, [recipe && recipe.id, autoOpenConfig]);
 
   const onSubmit = React.useCallback(() => {
@@ -1713,6 +1896,37 @@ function RecipeDetailScreen({ recipe, onBack, onOpenShareView, autoOpenConfig })
     const all = (window.RECIPES || []).filter((r) => r.id !== recipe.id);
     return { L: all.filter((r) => r.col === 'L'), R: all.filter((r) => r.col === 'R') };
   }, [recipe && recipe.id, recipe && recipe.image, recipe && recipe.title]);
+  const communityResults = React.useMemo(() => {
+    const base = {
+      ...recipe,
+      fromRecipe: true,
+      image: recipe.image,
+      theme: recipe.theme,
+      description: recipe.previewDescription || recipe.description,
+    };
+    const shortTitle = recipe.title || 'Recipe';
+    const variants = [
+      { suffix: 'street cut', creator: '@mira made with this recipe', aspect: '4 / 5' },
+      { suffix: 'cinematic loop', creator: '@kai remixed the prompt', aspect: '1 / 1.18' },
+      { suffix: 'social post frame', creator: '@noa shared this result', aspect: '4 / 5.8' },
+      { suffix: 'creator edit', creator: '@lina rebuilt the scene', aspect: '1 / 1' },
+    ];
+    const cards = variants.map((v, idx) => ({
+      ...base,
+      id: `${recipe.id || 'recipe'}-community-${idx + 1}`,
+      title: `${shortTitle} - ${v.suffix}`,
+      creator: v.creator,
+      aspect: v.aspect,
+      when: idx === 0 ? 'Made today' : `${idx + 1}d ago`,
+      __userPrompt: `${shortTitle} using the original recipe, ${v.suffix}.`,
+    }));
+    return {
+      all: cards,
+      L: cards.filter((_, idx) => idx % 2 === 0),
+      R: cards.filter((_, idx) => idx % 2 === 1),
+      count: cards.length,
+    };
+  }, [recipe && recipe.id, recipe && recipe.image, recipe && recipe.title, recipe && recipe.description]);
 
   const credits = typeof recipe.credits === 'number' ? recipe.credits : 12;
   const VIDEO_H = 480;
@@ -1761,6 +1975,57 @@ function RecipeDetailScreen({ recipe, onBack, onOpenShareView, autoOpenConfig })
               recipe.previewFile
             )}
           </p>
+
+          <div style={{
+            marginTop: 28, marginBottom: 10,
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+          }}>
+            <h3 style={{
+              margin: 0,
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 17, lineHeight: '22px', fontWeight: 700,
+              color: '#09090B', letterSpacing: -0.1,
+              fontFeatureSettings: '"zero" 1',
+            }}>Made with this recipe</h3>
+            <button
+              type="button"
+              onClick={() => setCommunityOpen(true)}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                padding: '4px 0',
+                cursor: 'pointer',
+                fontFamily: '"Manrope", system-ui, sans-serif',
+                fontSize: 12, lineHeight: '16px', fontWeight: 700,
+                color: 'var(--color-schemes-primary)',
+                letterSpacing: 0.2,
+                textTransform: 'lowercase',
+              }}
+            >all</button>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            gap: 10,
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            padding: '0 0 4px',
+            margin: '0 -20px 0 0',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+          }}>
+            {(communityResults.all || []).map((item) => (
+              <div key={item.id} style={{
+                width: 132,
+                minWidth: 132,
+              }}>
+                <RecipeResultCard
+                  item={item}
+                  onClick={(result) => onOpenShareView && onOpenShareView(result)}
+                />
+              </div>
+            ))}
+          </div>
 
           {/* "More like this" — section header + recipe count */}
           <div style={{
@@ -1860,6 +2125,15 @@ function RecipeDetailScreen({ recipe, onBack, onOpenShareView, autoOpenConfig })
           <Icon.Share size={18} color="var(--color-surface-on-surface)" />
         </button>
       </div>
+
+      {communityOpen && (
+        <CommunityRecipeResultsScreen
+          title={recipe.title}
+          results={communityResults.all}
+          onBack={() => setCommunityOpen(false)}
+          onOpenShareView={onOpenShareView}
+        />
+      )}
 
       {/* Config sheet — opens on CTA tap. Single-detent modal:
           form only, drag down past threshold to dismiss. */}

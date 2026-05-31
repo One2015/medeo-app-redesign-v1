@@ -25,6 +25,11 @@ const COMPOSER_KB_H = 257;
 // Avail = PHONE_H − KB − chip-row − gaps − card-chrome − 110
 //       = 852 − 257 − 32 − 16 − 74 − 110 ≈ 363
 const COMPOSER_TA_MAX = 360;
+const COMPOSER_PRESETS = [
+  'Create a commercial ad video',
+  'Create an image for your social media post',
+  'Create a pet video',
+];
 
 function ComposerSheet({ onClose, accent, navHeight = 90, onSend }) {
   const [text, setText] = React.useState('Create a short video with');
@@ -152,6 +157,16 @@ function ComposerCard({ text, setText, ideas, setIdeas, accent, onInputFocus, te
     const next = Math.max(minTaH, Math.min(el.scrollHeight, textareaMaxH));
     el.style.height = next + 'px';
   }, [textareaMaxH]);
+  const applyPreset = React.useCallback((prompt) => {
+    setText(prompt);
+    setAttached([]);
+    setAddMenuOpen(false);
+    setUrlMode(false);
+    requestAnimationFrame(() => {
+      autosize();
+      inputRef.current && inputRef.current.focus();
+    });
+  }, [autosize, setText]);
 
   React.useEffect(() => {
     inputRef.current && inputRef.current.focus();
@@ -170,6 +185,7 @@ function ComposerCard({ text, setText, ideas, setIdeas, accent, onInputFocus, te
         onInputFocus && onInputFocus();
       }}
       style={{
+        position: 'relative',
         background: 'rgba(255,255,255,0.58)',
         borderRadius: '28px 28px 0 0',
         padding: '18px 22px 12px',
@@ -179,6 +195,60 @@ function ComposerCard({ text, setText, ideas, setIdeas, accent, onInputFocus, te
         backdropFilter: 'blur(26px) saturate(180%)',
         WebkitBackdropFilter: 'blur(26px) saturate(180%)',
       }}>
+      {/* Preset prompts float outside the input surface, on the blurred
+          composer backdrop, matching the ChatGPT-style suggestion row. */}
+      <div style={{
+        position: 'absolute',
+        left: 22,
+        right: 22,
+        bottom: 'calc(100% + 12px)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        alignItems: 'flex-start',
+        pointerEvents: 'auto',
+      }}>
+        {COMPOSER_PRESETS.map((prompt) => (
+          <button
+            key={prompt}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              applyPreset(prompt);
+            }}
+            style={{
+              width: 'fit-content',
+              maxWidth: '100%',
+              height: 40,
+              padding: '0 14px',
+              borderRadius: 999,
+              border: '0.5px solid rgba(9, 9, 11, 0.08)',
+              background: 'rgba(255,255,255,0.88)',
+              color: '#1F1A23',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              gap: 8,
+              boxShadow: '0 6px 18px rgba(20,8,60,0.08), inset 0 1px 0 rgba(255,255,255,0.92)',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 14,
+              lineHeight: '20px',
+              fontWeight: 600,
+              letterSpacing: -0.05,
+              textAlign: 'left',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <Icon.Sparkles size={14} color={accent || 'var(--color-schemes-primary)'} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{prompt}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Prompt flow — textarea and resource chips live in the same
           flex-wrap line, so "Create a short video with" is immediately
           followed by the slots instead of forcing the slots onto a
