@@ -37,6 +37,12 @@
   --bg-grad-dark: linear-gradient(170deg, #1D1430 0%, #160F26 35%, #0B0816 100%);
   --card: #ffffff;
   --hair: rgba(0,0,0,0.06);
+
+  /* Safe default so the phone stage always has a real size even before the
+     inline scaler script runs (or if it fails). JS overrides this via an
+     inline style on <html>, which wins over this rule and inherits down to
+     .phone-stage. Never let this be unset or .phone-stage collapses to 0. */
+  --stage-scale: 1;
 }
 
 html, body {
@@ -87,13 +93,8 @@ html, body { height: 100%; }
   --phone-h: 852px;
   --phone-bezel: 24px;
   --stage-pad: 16px;
-  /* Fallback for first paint / no-JS — uses dvh with a generous
-     extra margin so we err on the side of "fits" rather than "clips". */
-  --stage-scale: min(
-    1,
-    calc((100vw - var(--stage-pad) * 2) / (393 + var(--phone-bezel) * 2)),
-    calc((100dvh - var(--stage-pad) * 2) / (852 + var(--phone-bezel) * 2))
-  );
+  /* Fallback for first paint / no-JS. Runtime JS writes the actual
+     value to :root; do not redeclare it here or it shadows that value. */
   width: calc((var(--phone-w) + var(--phone-bezel) * 2) * var(--stage-scale));
   height: calc((var(--phone-h) + var(--phone-bezel) * 2) * var(--stage-scale));
   display: flex;

@@ -3743,15 +3743,30 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onEditRecipe, onOpenCre
               }} />
               Creating… {creatingPct}%
             </div>
-            {onOpenCreationLog && (
-              <button
-                aria-label="Open creation chat"
-                onClick={() => onOpenCreationLog(r)}
-                style={glassIconBtn}
-              >
-                <Icon.Chat size={18} color="#FFFFFF" stroke={2} />
-              </button>
-            )}
+            <button
+              aria-label="Download disabled while creating"
+              disabled
+              style={{
+                ...glassIconBtn,
+                cursor: 'not-allowed',
+                opacity: 0.42,
+                filter: 'grayscale(1)',
+              }}
+            >
+              <Icon.Download size={18} color="#FFFFFF" />
+            </button>
+            <button
+              aria-label="Share disabled while creating"
+              disabled
+              style={{
+                ...glassIconBtn,
+                cursor: 'not-allowed',
+                opacity: 0.42,
+                filter: 'grayscale(1)',
+              }}
+            >
+              <Icon.Share size={18} color="#FFFFFF" stroke={1.8} />
+            </button>
           </div>
         ) : (
         <div style={{
