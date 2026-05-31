@@ -46,6 +46,10 @@ function App() {
   // Project chat — when set, opens ConversationScreen for the selected
   // project (Projects tab → tap an item).
   const [chatProject, setChatProject] = useState(null);
+  // When the user enters the chat from a result page, remember that
+  // result so the chat back button returns to the exact result surface
+  // (including the in-progress creating state).
+  const [chatReturnRecipe, setChatReturnRecipe] = useState(null);
   // Shared-recipe viewer (Figma node 20669:12391). Opened when the user
   // long-presses a card or follows a share link — for the prototype it's
   // exposed via a Tweaks button and a long-press on a homepage card.
@@ -254,7 +258,10 @@ function App() {
         {tab === 'projects' && (
           <ProjectsScreen
             scrollRef={scrollRef} onScroll={onScroll}
-            onOpenProject={(p) => setChatProject(p)}
+            onOpenProject={(p) => {
+              setChatReturnRecipe(null);
+              setChatProject(p);
+            }}
             onOpenShareView={(recipe) => setShareViewRecipe(recipe)}
             accent={accent}
             queue={queue}
@@ -268,7 +275,10 @@ function App() {
             recipe={detailRecipe}
             autoOpenConfig={detailAutoOpen}
             onBack={() => { setDetailRecipe(null); setDetailAutoOpen(false); }}
-            onOpenShareView={(r) => setShareViewRecipe(r)}
+            onOpenShareView={(r) => {
+              setChatReturnRecipe(null);
+              setShareViewRecipe(r);
+            }}
           />
         )}
 
@@ -280,7 +290,16 @@ function App() {
             recipe={chatProject}
             userText={chatProject.__userPrompt || chatProject.title}
             userFile={null}
-            onClose={() => setChatProject(null)}
+            onClose={() => {
+              setChatProject(null);
+              if (chatReturnRecipe) {
+                const live = (queue || []).find((q) => q.id === chatReturnRecipe.id);
+                setShareViewRecipe(live
+                  ? { ...chatReturnRecipe, ...live, __generating: true }
+                  : chatReturnRecipe);
+                setChatReturnRecipe(null);
+              }
+            }}
             onOpenShareView={(r) => setShareViewRecipe(r)}
           />
         )}
@@ -298,6 +317,7 @@ function App() {
               openDetail(r, { autoOpenConfig: true });
             }}
             onOpenCreationLog={(r) => {
+              setChatReturnRecipe(r);
               setChatProject(r);
               setShareViewRecipe(null);
             }}
