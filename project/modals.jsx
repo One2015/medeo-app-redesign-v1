@@ -1335,6 +1335,28 @@ function ProfileSheet({ onClose, accent }) {
     { icon: <Icon.Settings size={19} color="#0A0A0A" />, label: 'Settings' },
     { icon: <Icon.Chat size={19} color="#0A0A0A" />, label: 'Get support' },
   ];
+
+  // Social accounts the user can bind. `brand` tints the icon disc; the
+  // connected state is local (prototype) and toggled on tap. Discord is
+  // the only one connected by default to mirror the home banner reward.
+  const socialAccounts = [
+    { id: 'discord', label: 'Discord', brand: '#5865F2', icon: (c) => <Icon.Discord size={18} color={c} /> },
+    { id: 'x', label: 'X', brand: '#0A0A0A', icon: (c) => <Icon.X size={16} color={c} /> },
+    { id: 'instagram', label: 'Instagram', brand: '#E1306C', icon: (c) => <Icon.Instagram size={18} color={c} /> },
+    { id: 'tiktok', label: 'TikTok', brand: '#0A0A0A', icon: (c) => <Icon.TikTok size={18} color={c} /> },
+  ];
+  const [connected, setConnected] = React.useState(() => ({ discord: true }));
+  const toggleConnect = (id, label) => {
+    setConnected((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      if (typeof window.__toast === 'function') {
+        window.__toast(next[id]
+          ? { kind: 'announce', title: `${label} connected`, body: 'Your account is now linked' }
+          : { kind: 'announce', title: `${label} disconnected`, body: 'Account unlinked' });
+      }
+      return next;
+    });
+  };
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 85 }}>
       <div onClick={onClose} style={{
@@ -1391,6 +1413,63 @@ function ProfileSheet({ onClose, accent }) {
               <Icon.Chevron size={16} color="#9BA0AB" />
             </button>
           ))}
+
+          {/* Social accounts — bind / unbind external accounts. Sits
+              below the settings menu. */}
+          <div style={{
+            fontSize: 12, fontWeight: 700, letterSpacing: 0.6,
+            color: '#8B8B96', textTransform: 'uppercase',
+            padding: '14px 4px 10px',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+          }}>Social accounts</div>
+          <div style={{
+            background: 'rgba(255,255,255,0.66)',
+            borderRadius: 18,
+            overflow: 'hidden',
+            boxShadow: '0 0 0 0.5px rgba(0,0,0,0.05), 0 6px 18px rgba(60,40,140,0.06)',
+          }}>
+            {socialAccounts.map((s, i) => {
+              const isOn = !!connected[s.id];
+              return (
+                <div key={s.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 14px',
+                  borderTop: i === 0 ? 'none' : '0.5px solid rgba(0,0,0,0.06)',
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                    background: '#FFFFFF',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 0 0 0.5px rgba(0,0,0,0.06)',
+                  }}>{s.icon(s.brand)}</div>
+                  <div style={{
+                    flex: 1, minWidth: 0,
+                    fontSize: 15.5, fontWeight: 600, color: '#0A0A0A',
+                    fontFamily: '"Manrope", system-ui, sans-serif',
+                  }}>{s.label}</div>
+                  <button
+                    onClick={() => toggleConnect(s.id, s.label)}
+                    style={{
+                      flexShrink: 0,
+                      height: 30, padding: isOn ? '0 12px' : '0 16px',
+                      borderRadius: 999,
+                      border: isOn ? '0.5px solid rgba(0,0,0,0.12)' : 'none',
+                      background: isOn ? 'rgba(255,255,255,0.9)' : (accent || '#863dfb'),
+                      color: isOn ? '#5C5C66' : '#FFFFFF',
+                      fontFamily: '"Manrope", system-ui, sans-serif',
+                      fontSize: 13, fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                    }}
+                  >
+                    {isOn ? 'Connected' : 'Connect'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ height: 8 }} />
           <button style={{
             display: 'flex', alignItems: 'center', gap: 14,
             padding: '14px 16px', border: 'none', background: 'transparent',

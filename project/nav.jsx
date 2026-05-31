@@ -112,22 +112,20 @@ function NavDock({ active, onChange, onCreate, onProfile, accent, collapsed, dar
 
 // ──────────────────────────────────────────────────────────
 // VARIANT B — iOS native-style floating tab bar
-// Three slots: Home / Create / Creation
+// Pill: Home / CreateSpace  +  separate circular "+" FAB
 // ──────────────────────────────────────────────────────────
 function NavWabi({ active, onChange, onCreate, onProjects, onProfile, queue, onQueueClick, notifBadge, accent, collapsed, dark }) {
   const tabs = [
-    { id: 'home', label: 'Home', kind: 'tab',
+    { id: 'home', label: 'Home',
       icon: (a, c) => <Icon.Home filled={a} color={c} size={22} stroke={2}/> },
-    { id: 'create', label: 'Create', kind: 'action',
-      icon: (a, c) => <Icon.Plus color={c} size={23} stroke={2.4}/> },
-    { id: 'projects', label: 'Creation', kind: 'tab',
+    { id: 'projects', label: 'CreateSpace',
       icon: (a, c) => <Icon.Hamburger color={c} size={22} stroke={2}/> },
   ];
-  const slotW = 76;
+  const slotW = 62;
   const scale = collapsed ? 0.88 : 1;
 
   return (
-    <NavShell>
+    <NavShell gap={10}>
       <div className="glass-wabi dock-shadow" style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -141,21 +139,16 @@ function NavWabi({ active, onChange, onCreate, onProjects, onProfile, queue, onQ
         transition: 'transform 0.34s cubic-bezier(0.34, 1.4, 0.5, 1)',
       }}>
         {tabs.map((t) => {
-          const isCreate = t.kind === 'action';
-          const a = !isCreate && t.id === active;
-          const onClick = () => {
-            if (isCreate) onCreate && onCreate();
-            else onChange && onChange(t.id);
-          };
+          const a = t.id === active;
           const fg = a ? accent : '#1F1A23';
           return (
-            <button key={t.id} onClick={onClick} aria-label={t.label} style={{
+            <button key={t.id} onClick={() => onChange && onChange(t.id)} aria-label={t.label} style={{
               width: slotW, height: 48,
               border: 'none', outline: 'none', padding: 0, margin: 0,
               background: a ? 'rgba(134, 61, 251, 0.10)' : 'transparent',
               borderRadius: 999,
               cursor: 'pointer', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 2,
+              alignItems: 'center', justifyContent: 'center', gap: 0,
               position: 'relative', zIndex: 1,
               color: fg,
               transition: 'background 0.18s ease, color 0.18s ease, transform 0.18s ease',
@@ -188,22 +181,27 @@ function NavWabi({ active, onChange, onCreate, onProjects, onProfile, queue, onQ
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transform: a ? 'scale(1.04)' : 'scale(1)',
+                transform: a ? 'scale(1.08)' : 'scale(1)',
                 transition: 'transform 0.22s cubic-bezier(0.34, 1.4, 0.5, 1)',
               }}>
                 {t.icon(a, fg)}
               </span>
-              <span style={{
-                fontFamily: '"Manrope", system-ui, sans-serif',
-                fontSize: 10.5,
-                fontWeight: a ? 700 : 600,
-                letterSpacing: -0.05,
-                lineHeight: '12px',
-              }}>{t.label}</span>
             </button>
           );
         })}
       </div>
+
+      {/* Separate circular "+" FAB — opens the composer. Sits to the
+          right of the pill as its own floating tab. */}
+      <button onClick={() => onCreate && onCreate()} aria-label="Create" className="fab-purple dock-shadow" style={{
+        width: 56, height: 56, borderRadius: 999, border: 'none',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', flexShrink: 0,
+        transform: `scale(${scale})`, transformOrigin: 'bottom center',
+        transition: 'transform 0.34s cubic-bezier(0.34, 1.4, 0.5, 1)',
+      }}>
+        <Icon.Plus size={24} color="#fff" stroke={2.6} />
+      </button>
     </NavShell>
   );
 }

@@ -278,6 +278,12 @@ function HeaderProfileButton({ onClick }) {
 }
 
 function HomeScreen({ onTapInput, onOpenProjects, onOpenProfile, onOpenCredits, onOpenRecipe, onLongPressRecipe, scrollRef, onScroll, activeChip, setActiveChip, accent, credits = 333, creditsReward }) {
+  const [discordDismissed, setDiscordDismissed] = React.useState(false);
+  const openDiscord = React.useCallback(() => {
+    if (typeof window.__toast === 'function') {
+      window.__toast({ kind: 'announce', title: 'Opening Discord…', body: 'Taking you to the Medeo community' });
+    }
+  }, []);
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#F4F4F5' }}>
       {/* Decorative bg blob — Figma's BG node uses a 209px blurred image at
@@ -309,6 +315,78 @@ function HomeScreen({ onTapInput, onOpenProjects, onOpenProfile, onOpenCredits, 
               <HeaderProfileButton onClick={onOpenProfile} />
             </div>
           </div>
+
+          {/* Discord community banner — sits between the title and the
+              chip tabs. Dismissible so it doesn't nag members who've
+              joined. Discord brand blurple accent; DS card radius/shadow. */}
+          {!discordDismissed && (
+            <div style={{ padding: '4px 20px 10px' }}>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={openDiscord}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDiscord(); } }}
+                style={{
+                  position: 'relative',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 12px 12px 12px',
+                  borderRadius: 18,
+                  background: 'linear-gradient(135deg, rgba(88,101,242,0.12) 0%, rgba(255,255,255,0.94) 60%)',
+                  border: '0.5px solid rgba(88,101,242,0.22)',
+                  boxShadow: '0 6px 18px rgba(60,40,140,0.08), inset 0 1px 0 rgba(255,255,255,0.7)',
+                  cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <span style={{
+                  width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                  background: '#5865F2',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 12px rgba(88,101,242,0.36)',
+                }}>
+                  <Icon.Discord size={24} color="#FFFFFF" />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: '"Manrope", system-ui, sans-serif',
+                    fontSize: 13.5, fontWeight: 800, letterSpacing: -0.2,
+                    color: '#1F1A23', lineHeight: '18px',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>Join the Discord community</div>
+                  <div style={{
+                    fontFamily: '"Manrope", system-ui, sans-serif',
+                    fontSize: 12, fontWeight: 500,
+                    color: '#6B6670', lineHeight: '16px', marginTop: 2,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>Earn 50 credits when you join</div>
+                </div>
+                <span style={{
+                  flexShrink: 0,
+                  height: 32, padding: '0 16px',
+                  borderRadius: 999,
+                  background: accent || '#863dfb',
+                  color: '#FFFFFF',
+                  fontFamily: '"Manrope", system-ui, sans-serif',
+                  fontSize: 13, fontWeight: 700,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 12px rgba(134,61,251,0.30)',
+                }}>Join</span>
+                <button
+                  aria-label="Dismiss"
+                  onClick={(e) => { e.stopPropagation(); setDiscordDismissed(true); }}
+                  style={{
+                    position: 'absolute', top: 6, right: 6,
+                    width: 22, height: 22, borderRadius: 999,
+                    border: 'none', background: 'rgba(31,26,35,0.06)',
+                    color: '#6B6670', cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, lineHeight: 1, padding: 0,
+                  }}
+                >×</button>
+              </div>
+            </div>
+          )}
+
           {/* RecipeChipGroups — text tabs with underline indicator.
               16px gap between items, 20px outer padding, items align
               along their baseline so the underline reads as a row rule. */}
@@ -336,7 +414,8 @@ function HomeScreen({ onTapInput, onOpenProjects, onOpenProfile, onOpenCredits, 
           padding 12px vertical, 20px horizontal. Sits below sticky top. */}
       <div ref={scrollRef} onScroll={onScroll} className="phone-scroll screen-fade" style={{
         position: 'absolute', inset: 0, overflow: 'auto',
-        paddingTop: 161, paddingBottom: 140,
+        paddingTop: discordDismissed ? 161 : 235, paddingBottom: 140,
+        transition: 'padding-top 0.2s ease',
       }}>
         {/* showcaseFeeds — Figma node 18606:24553. 2 columns, 8px gap. */}
         <div style={{
@@ -374,23 +453,15 @@ function NotifBadge({ kind, accent }) {
   const glyph = kind === 'ready'    ? <Icon.Sparkle size={12} color="#fff" />
               : kind === 'failed'   ? <Icon.Warning size={13} color="#fff" />
               : kind === 'announce' ? <Icon.Megaphone size={13} color="#fff" />
-              : kind === 'new'      ? <Icon.Beaker size={13} color="#fff" />
-              : kind === 'invite'   ? <Icon.Gift size={13} color="#fff" stroke={2} />
               : null;
   // Failed badges flip to a red wash to distinguish error states from
-  // happy-path completions / promos. Invite badges use a warm gold so
-  // the referral reward reads as a celebration, distinct from both the
-  // brand purple (creation events) and the red (errors).
+  // happy-path completions / official template announcements.
   const bg = kind === 'failed'
     ? 'linear-gradient(160deg, #FF4D4F 0%, #C8261D 100%)'
-    : kind === 'invite'
-      ? 'linear-gradient(160deg, #F6B73B 0%, #E0892A 100%)'
-      : `linear-gradient(160deg, ${accent} 0%, ${accent}cc 100%)`;
+    : `linear-gradient(160deg, ${accent} 0%, ${accent}cc 100%)`;
   const shadow = kind === 'failed'
     ? '0 4px 10px rgba(200, 38, 29, 0.35), 0 0 0 2px #fff'
-    : kind === 'invite'
-      ? '0 4px 10px rgba(224, 137, 42, 0.40), 0 0 0 2px #fff'
-      : `0 4px 10px ${accent}55, 0 0 0 2px #fff`;
+    : `0 4px 10px ${accent}55, 0 0 0 2px #fff`;
   return (
     <div style={{
       position: 'absolute', right: -4, bottom: -4,
@@ -443,21 +514,9 @@ function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView
   //                          and retry (matches PRD § 7.1.2 matrix).
   //                          The inline Retry link now routes to the
   //                          same config sheet — no direct re-enqueue.
-  //   • kind === 'invite' → "Share to earn more" → open the share page
-  //                          directly so the reward loops back into
-  //                          another share action.
-  //   • otherwise (new / announce) → "Try it now" → the recipe detail
+  //   • kind === 'announce' → "Try it now" → the recipe detail
   //                          page so the user can review and try.
   const handleNotifTap = React.useCallback((n) => {
-    if (n.kind === 'invite') {
-      if (onOpenSharePage) {
-        const recipe = (window.RECIPES || [])[0] || { title: 'Medeo', theme: 'jelly' };
-        onOpenSharePage(recipe);
-      } else if (onGoHome) {
-        onGoHome();
-      }
-      return;
-    }
     const recipe = recipeForNotif(n);
     if (n.kind === 'ready' && onOpenShareView) {
       onOpenShareView(recipe);
@@ -465,7 +524,7 @@ function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView
       const opts = n.kind === 'failed' ? { autoOpenConfig: true } : undefined;
       onOpenRecipe(recipe, opts);
     }
-  }, [onOpenRecipe, onOpenShareView, onOpenSharePage, onGoHome, recipeForNotif]);
+  }, [onOpenRecipe, onOpenShareView, recipeForNotif]);
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -500,25 +559,20 @@ function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView
           {list.map((n) => {
             const theme = window.CARD_THEMES[n.theme] || window.CARD_THEMES.jelly;
             const isFailed = n.kind === 'failed';
-            const isInvite = n.kind === 'invite';
             // Failed notifications render with a soft red wash so they
             // read as an actionable error at-a-glance, not just another
-            // grey card. Invite (referral reward) notifications get a
-            // warm gold wash so the celebration reads instantly without
-            // needing to parse the title. Other kinds stay on plain white.
+            // grey card. Success and official template announcements stay
+            // on plain white.
             const cardBg = isFailed
               ? 'linear-gradient(180deg, rgba(255, 235, 234, 0.92) 0%, #FFFFFF 70%)'
-              : isInvite
-                ? 'linear-gradient(180deg, rgba(255, 244, 220, 0.95) 0%, #FFFFFF 75%)'
-                : '#fff';
+              : '#fff';
             // All cards share the same inline text-link CTA pattern
             // (no bordered button row). Color shifts by kind so the
-            // visual register matches the wash: failed → red (matches
-            // the soft red wash + warning badge), invite → warm amber
-            // (matches the gold wash), others → brand accent.
+            // visual register matches the wash: failed → red, others →
+            // brand accent.
             const ctaColor = isFailed
               ? '#C8261D'
-              : (isInvite ? '#B25C0F' : accent);
+              : accent;
             // Retry link uses the same destination as tapping the failed
             // card body: Recipe Detail + Config Sheet auto-open. We do
             // not re-enqueue directly here, so there is no extra retry
@@ -553,29 +607,14 @@ function NotificationScreen({ scrollRef, onScroll, onOpenRecipe, onOpenShareView
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div style={{
                       width: 76, height: 76, borderRadius: 14, overflow: 'hidden',
-                      background: isInvite
-                        ? 'linear-gradient(160deg, #FFEFC9 0%, #F6D58D 100%)'
-                        : theme.bg,
+                      background: theme.bg,
                       position: 'relative',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       {/* Real artwork when available — falls back to the
                           theme gradient + subtle stripe overlay so empty
-                          thumbnails still feel like art. Invite kind
-                          replaces the artwork with a centered "+N"
-                          credit chip so the reward amount is the hero. */}
-                      {isInvite ? (
-                        <div style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          gap: 3, color: '#7A3F03',
-                          fontFamily: '"Manrope", system-ui, sans-serif',
-                          fontWeight: 800, fontSize: 22, letterSpacing: -0.3,
-                          fontFeatureSettings: '"zero" 1',
-                        }}>
-                          <span>+{n.amount || 50}</span>
-                          <Icon.Bolt size={18} />
-                        </div>
-                      ) : n.image ? (
+                          thumbnails still feel like art. */}
+                      {n.image ? (
                         <img src={n.image} alt="" style={{
                           width: '100%', height: '100%', objectFit: 'cover',
                           display: 'block',
@@ -661,6 +700,81 @@ function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onOpenShareView, o
   const projects = window.PROJECTS || [];
   const liveQueue = Array.isArray(queue) ? queue : [];
   const liveCompleted = Array.isArray(completedCreations) ? completedCreations : [];
+  const [deleteMode, setDeleteMode] = React.useState(false);
+  const [deletedIds, setDeletedIds] = React.useState(() => new Set());
+  const [selectedIds, setSelectedIds] = React.useState(() => new Set());
+  const visibleCompleted = liveCompleted.filter((c) => !deletedIds.has(`completed:${c.id}`));
+  const visibleProjects = projects.filter((p) => !deletedIds.has(`project:${p.id}`));
+  const recentCount = visibleCompleted.length + visibleProjects.length;
+  const selectedCount = selectedIds.size;
+
+  // Timeline grouping — merge finished generations + saved projects into a
+  // single list, sort newest-first, then group by calendar day. Today keeps
+  // a friendly "Today" label; every older day is labelled with its actual
+  // date. (The "Generating" section is rendered separately above and only
+  // appears when there are in-flight jobs.)
+  const now = Date.now();
+  const DAY = 86400000;
+  const dayStart = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const todayStart = dayStart(now);
+  const fmtDate = (ts) => {
+    const d = new Date(ts);
+    const opts = { month: 'short', day: 'numeric' };
+    if (d.getFullYear() !== new Date(now).getFullYear()) opts.year = 'numeric';
+    return d.toLocaleDateString('en-US', opts);
+  };
+  const records = [];
+  visibleCompleted.forEach((c) => {
+    records.push({
+      key: `completed:${c.id}`,
+      ts: c.completedAt || now,
+      item: c,
+      onTap: () => {
+        if (onOpenShareView) {
+          onOpenShareView({
+            ...(c.recipe || c),
+            id: c.id, title: c.title, image: c.image, theme: c.theme,
+            fromRecipe: !!c.fromRecipe,
+          });
+        }
+      },
+    });
+  });
+  visibleProjects.forEach((p) => {
+    records.push({
+      key: `project:${p.id}`,
+      ts: p.ts || (now - DAY),
+      item: p,
+      onTap: () => onOpenShareView && onOpenShareView(p),
+    });
+  });
+  records.sort((a, b) => b.ts - a.ts);
+  const byDay = new Map();
+  records.forEach((rec) => {
+    const k = dayStart(rec.ts);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k).push(rec);
+  });
+  const groups = Array.from(byDay.keys())
+    .sort((a, b) => b - a)
+    .map((k) => ({ label: k === todayStart ? 'Today' : fmtDate(k), items: byDay.get(k) }));
+  const toggleSelection = React.useCallback((key) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+  const deleteSelected = React.useCallback(() => {
+    if (selectedIds.size === 0) return;
+    setDeletedIds((prev) => {
+      const next = new Set(prev);
+      selectedIds.forEach((id) => next.add(id));
+      return next;
+    });
+    setSelectedIds(new Set());
+  }, [selectedIds]);
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       {/* Glass back button — only rendered when the screen is reused
@@ -678,11 +792,39 @@ function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onOpenShareView, o
         WebkitBackdropFilter: 'blur(14px) saturate(140%)',
       }}>
         <div style={{ padding: onBack ? '0 20px 0 68px' : '0 20px' }}>
-          <div>
-            <h1 className="h-recipe" style={{ margin: 0 }}>Creation</h1>
-            <div style={{ fontSize: 13.5, color: '#5C5C66', marginTop: 6, fontWeight: 400, lineHeight: 1.35 }}>
-              Your generations and saved drafts.
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <h1 className="h-recipe" style={{ margin: 0 }}>CreateSpace</h1>
+              <div style={{ fontSize: 13.5, color: '#5C5C66', marginTop: 6, fontWeight: 400, lineHeight: 1.35 }}>
+                {deleteMode ? 'Select thumbnails to delete.' : 'Your generations and saved drafts.'}
+              </div>
             </div>
+            {recentCount > 0 && (
+              <button
+                onClick={() => {
+                  setDeleteMode((v) => !v);
+                  setSelectedIds(new Set());
+                }}
+                style={{
+                  height: 34,
+                  padding: '0 13px',
+                  borderRadius: 999,
+                  border: '0.5px solid rgba(134, 61, 251, 0.20)',
+                  background: 'rgba(255,255,255,0.72)',
+                  color: accent || '#863dfb',
+                  fontFamily: '"Manrope", system-ui, sans-serif',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  boxShadow: '0 4px 14px rgba(20,8,60,0.08)',
+                }}
+              >
+                {deleteMode ? 'Done' : 'Edit'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -699,12 +841,17 @@ function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onOpenShareView, o
         {liveQueue.length > 0 && (
           <div style={{ padding: '4px 16px 0' }}>
             <ProjectsSectionLabel text="Generating" count={liveQueue.length} accent={accent} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 8,
+            }}>
               {liveQueue.map((q) => (
-                <GeneratingRow
+                <CreationGridCard
                   key={q.id}
                   item={q}
                   accent={accent}
+                  isGenerating
                   onTap={() => onOpenProject && onOpenProject({
                     id: q.id, title: q.title, theme: q.theme, image: q.image,
                     __isGenerating: true,
@@ -716,81 +863,69 @@ function ProjectsScreen({ scrollRef, onScroll, onOpenProject, onOpenShareView, o
           </div>
         )}
 
-        {/* Recent — every creation card opens the conversation/log page.
-            This keeps Creation as the user's work history surface rather
-            than a public share/result viewer. */}
+        {/* Recent — finished thumbnails grouped along a timeline. Each
+            bucket is its own labelled section; tapping a card opens the
+            generated result page. Delete mode turns each square into a
+            direct delete target. */}
         <div style={{ padding: liveQueue.length ? '18px 16px 0' : '4px 16px 0' }}>
-          {(liveCompleted.length + projects.length) > 0 && (
-            <ProjectsSectionLabel text="Recent" />
+          {groups.map((g, gi) => (
+            <div key={g.label} style={{ marginTop: gi === 0 ? 0 : 18 }}>
+              <ProjectsSectionLabel text={g.label} />
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: 8,
+              }}>
+                {g.items.map((rec) => (
+                  <CreationGridCard
+                    key={rec.key}
+                    item={rec.item}
+                    deleteMode={deleteMode}
+                    selected={selectedIds.has(rec.key)}
+                    onSelect={() => toggleSelection(rec.key)}
+                    onTap={rec.onTap}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          {recentCount > 0 && (
+            <div style={{ textAlign: 'center', padding: '20px 0 4px', color: '#9BA0AB', fontSize: 13 }}>
+              That's everything you've made.
+            </div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {liveCompleted.map((c) => (
-              <CompletedRow
-                key={c.id}
-                item={c}
-                onTap={() => {
-                  if (onOpenProject) {
-                    onOpenProject({
-                      ...(c.recipe || c),
-                      id: c.id,
-                      title: c.title,
-                      image: c.image,
-                      theme: c.theme,
-                      __userPrompt: c.title,
-                    });
-                  }
-                }}
-              />
-            ))}
-            {projects.map((p) => {
-              const theme = window.CARD_THEMES[p.theme] || window.CARD_THEMES.jelly;
-              return (
-                <div
-                  key={p.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onOpenProject && onOpenProject(p)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onOpenProject && onOpenProject(p);
-                    }
-                  }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 14, padding: 12,
-                    background: '#fff', borderRadius: 18,
-                    boxShadow: '0 0 0 0.5px rgba(0,0,0,0.04), 0 2px 8px rgba(60,40,140,0.05), 0 1px 2px rgba(60,40,140,0.04)',
-                    cursor: 'pointer',
-                  }}>
-                  <div style={{
-                    width: 64, height: 64, borderRadius: 14, overflow: 'hidden',
-                    background: theme.bg, position: 'relative', flexShrink: 0,
-                  }}>
-                    <div style={{
-                      position: 'absolute', inset: 0,
-                      backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 12px)',
-                    }} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: 15.5, fontWeight: 600, color: '#0A0A0A', letterSpacing: -0.1,
-                      lineHeight: 1.3,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>{p.title}</div>
-                    <div style={{
-                      fontSize: 12.5, color: '#9BA0AB', marginTop: 4, fontWeight: 500,
-                    }}>{p.when}</div>
-                  </div>
-                  <Icon.Chevron size={16} color="#9BA0AB" />
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ textAlign: 'center', padding: '20px 0 4px', color: '#9BA0AB', fontSize: 13 }}>
-            That's everything you've made.
-          </div>
         </div>
       </div>
+      {deleteMode && selectedCount > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: 24,
+          right: 24,
+          bottom: 118,
+          zIndex: 25,
+          pointerEvents: 'none',
+        }}>
+          <button
+            onClick={deleteSelected}
+            style={{
+              width: '100%',
+              height: 46,
+              borderRadius: 999,
+              border: 'none',
+              background: '#C8261D',
+              color: '#FFFFFF',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 15,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 14px 34px rgba(200,38,29,0.26), 0 3px 10px rgba(0,0,0,0.10)',
+              pointerEvents: 'auto',
+            }}
+          >
+            Delete selected ({selectedCount})
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -819,6 +954,213 @@ function ProjectsSectionLabel({ text, count, accent }) {
         }}>{count}</span>
       )}
     </div>
+  );
+}
+
+// Square thumbnail used by the Creation tab. The page should read as a
+// visual gallery, not a task list; title/progress are secondary overlays.
+function CreationGridCard({ item, accent, isGenerating = false, deleteMode = false, selected = false, onSelect, onTap }) {
+  const theme = window.CARD_THEMES[item.theme] || window.CARD_THEMES.jelly;
+  const pct = Math.round((item.progress || 0) * 100);
+  const hasImage = !!item.image;
+  return (
+    <button
+      onClick={(e) => {
+        if (deleteMode && !isGenerating && onSelect) {
+          e.preventDefault();
+          onSelect();
+          return;
+        }
+        onTap && onTap();
+      }}
+      aria-label={item.title || 'Open creation'}
+      style={{
+        width: '100%',
+        aspectRatio: '1 / 1',
+        border: 'none',
+        borderRadius: 18,
+        padding: 0,
+        overflow: 'hidden',
+        position: 'relative',
+        background: theme.bg || '#EEEEF0',
+        boxShadow: selected
+          ? '0 0 0 2px rgba(134, 61, 251, 0.72), 0 8px 22px rgba(134,61,251,0.18)'
+          : '0 0 0 0.5px rgba(0,0,0,0.05), 0 6px 18px rgba(60,40,140,0.08)',
+        cursor: 'pointer',
+      }}
+    >
+      {hasImage ? (
+        <img
+          src={item.image}
+          alt=""
+          draggable={false}
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+            filter: isGenerating ? 'saturate(0.75) brightness(0.72)' : 'none',
+          }}
+        />
+      ) : (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 12px)',
+        }} />
+      )}
+
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: isGenerating
+          ? 'linear-gradient(180deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.48) 100%)'
+          : deleteMode
+            ? 'linear-gradient(180deg, rgba(134,61,251,0.10) 0%, rgba(0,0,0,0.50) 100%)'
+            : 'linear-gradient(180deg, rgba(0,0,0,0) 42%, rgba(0,0,0,0.48) 100%)',
+      }} />
+
+      {item.fromRecipe && !deleteMode && (
+        <span aria-label="Made from a recipe" style={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          width: 26,
+          height: 26,
+          borderRadius: 9,
+          background: 'rgba(20, 18, 24, 0.34)',
+          backdropFilter: 'blur(8px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(8px) saturate(150%)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: 'inset 0 0.5px 0.5px rgba(255,255,255,0.4)',
+          pointerEvents: 'none',
+        }}>
+          <Icon.Sparkles size={15} color="#FFFFFF" />
+        </span>
+      )}
+
+      {deleteMode && !isGenerating && (
+        <span style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          width: 28,
+          height: 28,
+          borderRadius: 999,
+          background: selected ? (accent || '#863dfb') : 'rgba(255,255,255,0.78)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: selected
+            ? '0 4px 12px rgba(134,61,251,0.28), 0 0 0 2px rgba(255,255,255,0.9)'
+            : '0 4px 12px rgba(0,0,0,0.12), 0 0 0 2px rgba(255,255,255,0.75)',
+          pointerEvents: 'none',
+        }}>
+          <span style={{
+            width: 12,
+            height: 12,
+            borderRadius: 999,
+            border: selected ? 'none' : '1.5px solid rgba(31,26,35,0.42)',
+            color: '#FFFFFF',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 10,
+            lineHeight: 1,
+            fontWeight: 900,
+          }}>{selected ? '✓' : ''}</span>
+        </span>
+      )}
+
+      {isGenerating && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          <div className="proj-spinner" style={{
+            width: 24,
+            height: 24,
+            borderRadius: 999,
+            border: '2px solid rgba(255,255,255,0.35)',
+            borderTopColor: '#fff',
+          }} />
+        </div>
+      )}
+
+      {isGenerating && (
+        <div style={{
+          position: 'absolute',
+          left: 8,
+          right: 8,
+          bottom: 30,
+          height: 3,
+          borderRadius: 999,
+          background: 'rgba(255,255,255,0.28)',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            width: `${pct}%`,
+            height: '100%',
+            borderRadius: 999,
+            background: accent || '#7C5BFD',
+            transition: 'width 0.3s linear',
+          }} />
+        </div>
+      )}
+
+      <div style={{
+        position: 'absolute',
+        left: 8,
+        right: 8,
+        bottom: 8,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        minWidth: 0,
+      }}>
+        <div style={{
+          flex: 1,
+          minWidth: 0,
+          color: '#FFFFFF',
+          fontFamily: '"Manrope", system-ui, sans-serif',
+          fontSize: 11.5,
+          lineHeight: '15px',
+          fontWeight: 700,
+          letterSpacing: -0.1,
+          textAlign: 'left',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+        }}>
+          {isGenerating ? `${pct}%` : (item.title || 'Untitled')}
+        </div>
+        {!isGenerating && !deleteMode && (
+          <span style={{
+            width: 20,
+            height: 20,
+            borderRadius: 999,
+            background: 'rgba(255,255,255,0.86)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+          }}>
+            <svg width="8" height="9" viewBox="0 0 10 11" aria-hidden="true">
+              <polygon points="1,0.5 9,5.5 1,10.5" fill="#0A0A0A" />
+            </svg>
+          </span>
+        )}
+      </div>
+    </button>
   );
 }
 
@@ -1355,7 +1697,7 @@ function RecipeDetailScreen({ recipe, onBack, onOpenShareView, autoOpenConfig })
 
   const onSubmit = React.useCallback(() => {
     if (typeof window.__enqueueGeneration === 'function') {
-      window.__enqueueGeneration(recipe);
+      window.__enqueueGeneration({ ...recipe, fromRecipe: true });
     }
     setConfigOpen(false);
     if (typeof onBack === 'function') onBack();
@@ -2927,14 +3269,14 @@ function SharePage({ recipe, onClose }) {
 //   • Full-bleed background video/image fills the entire phone frame.
 //   • Status bar + glass back button overlay the top.
 //   • A bottom gradient pad hosts the title, description, scrubber and
-//     three actions: a large "Use this recipe" lavender pill that fills
+//     three actions: a large "Edit" lavender pill that fills
 //     the row, plus circular glass download + share icon buttons.
 //
 // Intentionally separate from SharePage (the "where do I share to" picker)
 // because they sit at different points in the share flow: ShareViewScreen
 // is for consumers viewing a creation, SharePage is for the creator
 // distributing it.
-function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, accent = '#7C5BFD' }) {
+function ShareViewScreen({ recipe, onClose, onUseRecipe, onEditRecipe, onOpenCreationLog, accent = '#7C5BFD' }) {
   const r = recipe || {};
   const theme = (window.CARD_THEMES && window.CARD_THEMES[r.theme]) || {};
   const bgColor = theme.bg || '#1A1A22';
@@ -3033,12 +3375,10 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
 
   // ── IG-style expandable caption sheet ───────────────────────────────
   // Tapping the title/description block lifts a bottom sheet to roughly
-  // half the screen. The user can drag it higher to FULL, drag down to
-  // dismiss, or tap the visible video area above the sheet. As the sheet
-  // rises the video container shrinks proportionally (Instagram pattern).
+  // half the screen. The sheet cannot expand to full page; its body
+  // scrolls internally for longer prompt content.
   const PHONE_H = 852;
-  const SHEET_HALF = 470;          // default opened height (~55%)
-  const SHEET_FULL = 720;          // pulled-all-the-way-up height
+  const SHEET_HALF = 430;          // max opened height (~50%)
   const SHEET_DISMISS = 120;       // < this on release → close
   const [sheetH, setSheetH] = React.useState(0);
   const sheetOpen = sheetH > 0;
@@ -3058,7 +3398,7 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
   const onHandleMove = (e) => {
     if (!dragRef.current.active) return;
     const dy = dragRef.current.startY - e.clientY;
-    const next = Math.max(0, Math.min(SHEET_FULL + 40, dragRef.current.startH + dy));
+    const next = Math.max(0, Math.min(SHEET_HALF, dragRef.current.startH + dy));
     setSheetH(next);
   };
   const onHandleUp = (e) => {
@@ -3066,11 +3406,10 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
     dragRef.current.active = false;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
     if (sheetH < SHEET_DISMISS) closeSheet();
-    else if (sheetH < (SHEET_HALF + SHEET_FULL) / 2) setSheetH(SHEET_HALF);
-    else setSheetH(SHEET_FULL);
+    else setSheetH(SHEET_HALF);
   };
 
-  // 0 → fully closed, 1 → at SHEET_HALF, > 1 → between half and full.
+  // 0 → fully closed, 1 → at the half-screen max height.
   // Drives the gradient/overlay fade so the original bottom controls
   // stay readable while the sheet is climbing past the halfway snap.
   const halfProgress = Math.min(1, sheetH / SHEET_HALF);
@@ -3158,22 +3497,45 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
       </button>
 
       {onOpenCreationLog && (
-        <button onClick={() => onOpenCreationLog(r)} aria-label="View creation log" style={{
-          position: 'absolute', top: 78, right: 20, zIndex: 30,
-          width: 50, height: 50, borderRadius: 999,
-          border: '1px solid rgba(56, 30, 114, 0.16)',
-          background: 'rgba(20, 18, 24, 0.16)',
-          backdropFilter: 'blur(10px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(10px) saturate(160%)',
-          boxShadow:
-            'inset 0 1px 1px rgba(255, 255, 255, 0.2), ' +
-            'inset 0 5px 10px rgba(255, 255, 255, 0.15)',
-          color: '#FFFFFF',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', padding: 0,
+        <div style={{
+          position: 'absolute',
+          top: 78,
+          right: 20,
+          zIndex: 30,
+          display: 'flex',
+          gap: 10,
         }}>
-          <Icon.Chat size={19} color="#FFFFFF" stroke={2} />
-        </button>
+          <button onClick={() => onOpenCreationLog(r)} aria-label="View creation log" style={{
+            width: 50, height: 50, borderRadius: 999,
+            border: '1px solid rgba(56, 30, 114, 0.16)',
+            background: 'rgba(20, 18, 24, 0.16)',
+            backdropFilter: 'blur(10px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(10px) saturate(160%)',
+            boxShadow:
+              'inset 0 1px 1px rgba(255, 255, 255, 0.2), ' +
+              'inset 0 5px 10px rgba(255, 255, 255, 0.15)',
+            color: '#FFFFFF',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', padding: 0,
+          }}>
+            <Icon.Chat size={19} color="#FFFFFF" stroke={2} />
+          </button>
+          <button aria-label="Report creation" style={{
+            width: 50, height: 50, borderRadius: 999,
+            border: '1px solid rgba(56, 30, 114, 0.16)',
+            background: 'rgba(20, 18, 24, 0.16)',
+            backdropFilter: 'blur(10px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(10px) saturate(160%)',
+            boxShadow:
+              'inset 0 1px 1px rgba(255, 255, 255, 0.2), ' +
+              'inset 0 5px 10px rgba(255, 255, 255, 0.15)',
+            color: '#FFFFFF',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', padding: 0,
+          }}>
+            <Icon.Flag size={19} color="#FFFFFF" stroke={2} />
+          </button>
+        </div>
       )}
 
       {/* Mute icon — pinned to the visible video area's bottom-right when
@@ -3229,6 +3591,26 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
             WebkitTapHighlightColor: 'transparent',
           }}
         >
+          {r.fromRecipe && (
+            <span aria-label="Made from a recipe" style={{
+              alignSelf: 'flex-start',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              marginBottom: 4,
+              padding: '3px 9px 3px 7px',
+              borderRadius: 999,
+              background: 'rgba(255, 255, 255, 0.16)',
+              border: '0.5px solid rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(10px) saturate(150%)',
+              WebkitBackdropFilter: 'blur(10px) saturate(150%)',
+            }}>
+              <Icon.Sparkles size={12} color="#FFFFFF" />
+              <span style={{
+                fontFamily: '"Manrope", system-ui, sans-serif',
+                fontSize: 11, fontWeight: 800, letterSpacing: 0.2,
+                color: '#FFFFFF', lineHeight: 1,
+              }}>Recipe</span>
+            </span>
+          )}
           <div style={{
             fontFamily: '"Manrope", system-ui, sans-serif',
             fontSize: 16, fontWeight: 600,
@@ -3249,43 +3631,6 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
             <PromptChip variant="dark" />
             {' and ...'}
           </div>
-          {onOpenCreationLog && (
-            <div style={{
-              marginTop: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              minWidth: 0,
-              fontFamily: '"Manrope", system-ui, sans-serif',
-              fontSize: 11.5,
-              lineHeight: '18px',
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.72)',
-              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-            }}>
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Created from "{title}"
-              </span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenCreationLog(r);
-                }}
-                style={{
-                  border: 'none',
-                  padding: 0,
-                  background: 'transparent',
-                  color: '#E0CCFF',
-                  font: 'inherit',
-                  fontWeight: 800,
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                }}
-              >
-                View creation log
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Scrubber row — 0:01 ──●──────── 0:16  [mute] */}
@@ -3335,10 +3680,20 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
         }}>
           <button
             onClick={() => {
-              // "Use this recipe" opens the config bottom sheet directly
-              // from the share/result page. It does NOT route through
-              // Recipe Detail; the share view already gave the context.
-              setConfigOpen(true);
+              // "Edit" routes by how the result was made:
+              //  • recipe-generated → reopen the original Recipe Detail
+              //    with its config sheet auto-raised, so the user can
+              //    re-tune the inputs they originally filled in.
+              //  • conversation-generated → guide back to the creation
+              //    chat/log to keep iterating in context.
+              if (r.fromRecipe) {
+                if (onEditRecipe) onEditRecipe(r);
+                else setConfigOpen(true);
+              } else if (onOpenCreationLog) {
+                onOpenCreationLog(r);
+              } else {
+                setConfigOpen(true);
+              }
             }}
             style={{
               flex: 1, height: 50, borderRadius: 999,
@@ -3356,7 +3711,7 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
             }}
           >
             <Icon.ChefHat size={18} color="#26222A" />
-            <span>Use this recipe</span>
+            <span>Edit</span>
           </button>
           <button
             aria-label="Download to local album"
@@ -3376,12 +3731,9 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
       </div>
 
       {/* Xiaohongshu-style description sheet ───────────────────────────
-          Slides up from below, default snap at SHEET_HALF, draggable to
-          SHEET_FULL or down to dismiss. Solid dark surface (no frosted
-          glass) — opaque so the video clearly reads as the "shrunk"
-          element above. Content: drag handle, title, short caption,
-          expanded prompt body. NO author/follow row per the spec —
-          this is a creation viewer, not a social profile. */}
+          Slides up from below and maxes at half-screen height. The
+          internal body scrolls for longer prompt content; it never
+          becomes a full-page sheet. */}
       <div style={{
         position: 'absolute', left: 0, right: 0, bottom: 0,
         height: sheetH,
@@ -3423,6 +3775,25 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
           WebkitOverflowScrolling: 'touch',
         }}>
           {/* Title */}
+          {r.fromRecipe && (
+            <span aria-label="Made from a recipe" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              margin: '4px 0 8px',
+              padding: '3px 10px 3px 8px',
+              borderRadius: 999,
+              background: 'rgba(255, 255, 255, 0.16)',
+              border: '0.5px solid rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(10px) saturate(150%)',
+              WebkitBackdropFilter: 'blur(10px) saturate(150%)',
+            }}>
+              <Icon.Sparkles size={12} color="#FFFFFF" />
+              <span style={{
+                fontFamily: '"Manrope", system-ui, sans-serif',
+                fontSize: 11, fontWeight: 800, letterSpacing: 0.2,
+                color: '#FFFFFF', lineHeight: 1,
+              }}>Recipe</span>
+            </span>
+          )}
           <h2 style={{
             margin: '4px 0 8px',
             fontFamily: '"Manrope", system-ui, sans-serif',
@@ -3443,48 +3814,6 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
             <PromptChip variant="dark" />
             {' and ...'}
           </p>
-
-          {onOpenCreationLog && (
-            <button
-              onClick={() => onOpenCreationLog(r)}
-              style={{
-                width: '100%',
-                minHeight: 44,
-                borderRadius: 14,
-                border: '0.5px solid rgba(224, 204, 255, 0.24)',
-                background: 'rgba(224, 204, 255, 0.10)',
-                color: '#E0CCFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 10,
-                padding: '10px 12px',
-                margin: '0 0 18px',
-                cursor: 'pointer',
-                fontFamily: '"Manrope", system-ui, sans-serif',
-              }}
-            >
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                fontSize: 13,
-                lineHeight: '18px',
-                fontWeight: 700,
-              }}>
-                <Icon.Chat size={16} color="#E0CCFF" stroke={2} />
-                View creation log
-              </span>
-              <span style={{
-                fontSize: 11.5,
-                lineHeight: '16px',
-                fontWeight: 600,
-                color: 'rgba(255,255,255,0.55)',
-              }}>
-                prompt & progress
-              </span>
-            </button>
-          )}
 
           {/* Section heading */}
           <div style={{
@@ -3520,7 +3849,7 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
           onClose={() => setConfigOpen(false)}
           onSubmit={() => {
             if (typeof window.__enqueueGeneration === 'function') {
-              window.__enqueueGeneration(r);
+              window.__enqueueGeneration({ ...r, fromRecipe: true });
             }
             setConfigOpen(false);
             onClose && onClose();
@@ -3609,50 +3938,10 @@ function ShareViewScreen({ recipe, onClose, onUseRecipe, onOpenCreationLog, acce
 }
 
 // ──────────────────────────────────────────────
-// Onboarding flow — sign in + 3-question survey + welcome.
+// Onboarding flow — sign in + notification permission.
 // ──────────────────────────────────────────────
 function OnboardingFlow({ onComplete }) {
   const [step, setStep] = React.useState(0);
-  const [answers, setAnswers] = React.useState({
-    source: 'Google',
-    role: 'Content Creator (e.g., YouTuber, influencer)',
-    goal: 'Monetizing videos for income',
-  });
-
-  const questions = [
-    {
-      key: 'source',
-      title: 'How did you hear\nabout Medeo?',
-      options: ['Google', 'LinkedIn', 'Wechat', 'Douyin', 'Friend/\nColleague', 'TikTok', 'Instagram', 'Readnote', 'X/Twitter', 'YouTube', 'Other'],
-      columns: 2,
-    },
-    {
-      key: 'role',
-      title: 'What best describes your\ncurrent role?',
-      options: [
-        'Content Creator (e.g., YouTuber,\ninfluencer)',
-        'Knowledge Seller (e.g., course\ncreator, online educator)',
-        'Marketing Professional (e.g., digital\nmarketer, advertiser)',
-        'Social Media Manager',
-        'Entrepreneur/Business Owner',
-        'Other',
-      ],
-      columns: 1,
-    },
-    {
-      key: 'goal',
-      title: 'What is your main goal for\nusing Medeo?',
-      options: [
-        'Monetizing videos for income',
-        'Promoting products or services',
-        'Searching for video footage more\nefficiently',
-        'Creating training or educational\nvideos',
-        'Personal interest',
-        'Other (Please specify)',
-      ],
-      columns: 1,
-    },
-  ];
 
   if (step === 0) {
     return (
@@ -3727,10 +4016,10 @@ function OnboardingFlow({ onComplete }) {
             fontWeight: 600,
           }}>Keep your creations, credits, and generated videos<br />in sync across all your devices.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <OnboardingAuthButton dark icon="" label="Continue with Apple" onClick={() => setStep(1)} />
-            <OnboardingAuthButton blue icon="G" label="Continue with Google" onClick={() => setStep(1)} />
-            <OnboardingAuthButton label="Continue with phone number" onClick={() => setStep(1)} />
-            <OnboardingAuthButton ghost label="Continue without an account" onClick={() => setStep(1)} />
+            <OnboardingAuthButton dark icon="" label="Continue with Apple" onClick={() => setStep(4)} />
+            <OnboardingAuthButton blue icon="G" label="Continue with Google" onClick={() => setStep(4)} />
+            <OnboardingAuthButton label="Continue with phone number" onClick={() => setStep(4)} />
+            <OnboardingAuthButton ghost label="Continue without an account" onClick={() => setStep(4)} />
           </div>
           <div style={{
             display: 'flex', justifyContent: 'space-between',
@@ -3743,115 +4032,6 @@ function OnboardingFlow({ onComplete }) {
             <span>Terms of Use</span>
             <span>Privacy Policy</span>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step >= 1 && step <= 3) {
-    const q = questions[step - 1];
-    return (
-      <div className="screen-fade" style={{
-        position: 'absolute', inset: 0, zIndex: 210,
-        background: '#F4F4F5',
-        overflow: 'hidden',
-      }}>
-        <IOSStatusBar />
-        <div style={{ padding: '88px 36px 0' }}>
-          <div style={{ height: 4, borderRadius: 999, background: '#E6D7FF', overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: `${(step / 3) * 100}%`,
-              background: 'var(--color-schemes-primary)',
-              borderRadius: 999,
-              transition: 'width 0.26s ease',
-            }} />
-          </div>
-          <h1 style={{
-            margin: '20px 0 22px',
-            whiteSpace: 'pre-line',
-            fontFamily: '"Manrope", system-ui, sans-serif',
-            fontSize: 26,
-            lineHeight: '27px',
-            fontWeight: 800,
-            letterSpacing: -1,
-            color: '#09090B',
-          }}>{q.title}</h1>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: q.columns === 2 ? '1fr 1fr' : '1fr',
-            background: '#FFFFFF',
-            borderRadius: 20,
-            overflow: 'hidden',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-          }}>
-            {q.options.map((opt, i) => {
-              const selected = answers[q.key] === opt;
-              return (
-                <button
-                  key={opt}
-                  onClick={() => setAnswers((a) => ({ ...a, [q.key]: opt }))}
-                  style={{
-                    minHeight: q.columns === 2 ? 65 : 68,
-                    border: 'none',
-                    borderRight: q.columns === 2 && i % 2 === 0 ? '0.5px solid rgba(0,0,0,0.08)' : 'none',
-                    borderBottom: i < q.options.length - q.columns ? '0.5px solid rgba(0,0,0,0.08)' : 'none',
-                    background: '#FFFFFF',
-                    padding: '12px 16px',
-                    textAlign: 'left',
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <span style={{
-                    width: 22, height: 22, borderRadius: 7,
-                    border: selected ? 'none' : '1.5px dashed #D6D6DA',
-                    background: selected ? '#09090B' : '#FFFFFF',
-                    color: '#FFFFFF',
-                    flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 14, fontWeight: 800,
-                  }}>{selected ? '✓' : ''}</span>
-                  <span style={{
-                    whiteSpace: 'pre-line',
-                    fontFamily: '"Manrope", system-ui, sans-serif',
-                    fontSize: 17,
-                    lineHeight: '22px',
-                    fontWeight: 600,
-                    color: '#1F1A23',
-                    letterSpacing: -0.2,
-                  }}>{opt}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div style={{
-          position: 'absolute', left: 38, right: 38, bottom: 54,
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
-        }}>
-          <button
-            onClick={() => setStep(Math.max(1, step - 1))}
-            disabled={step === 1}
-            style={{
-              height: 54, borderRadius: 'var(--shape-radius-full)',
-              border: '0.5px solid rgba(0,0,0,0.06)',
-              background: '#FFFFFF',
-              color: step === 1 ? '#D4D4D8' : '#09090B',
-              fontFamily: '"Manrope", system-ui, sans-serif',
-              fontSize: 17, fontWeight: 600,
-              cursor: step === 1 ? 'default' : 'pointer',
-            }}
-          >Previous</button>
-          <button
-            onClick={() => setStep(step === 3 ? 4 : step + 1)}
-            style={{
-              height: 54, borderRadius: 'var(--shape-radius-full)',
-              border: 'none', background: '#09090B', color: '#FFFFFF',
-              fontFamily: '"Manrope", system-ui, sans-serif',
-              fontSize: 17, fontWeight: 600, cursor: 'pointer',
-            }}
-          >Next</button>
         </div>
       </div>
     );
@@ -3934,8 +4114,7 @@ function OnboardingFlow({ onComplete }) {
             {[
               ['✨', 'Your video is ready to watch'],
               ['⚠️', 'A generation failed and needs review'],
-              ['🧪', 'New recipes are available'],
-              ['⚡', 'Invite rewards arrive in your credits'],
+              ['🧪', 'New templates are available'],
             ].map(([emoji, text], i, arr) => (
               <div key={text} style={{
                 display: 'flex',
@@ -3971,7 +4150,7 @@ function OnboardingFlow({ onComplete }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <button
-              onClick={() => setStep(5)}
+              onClick={onComplete}
               style={{
                 height: 56,
                 borderRadius: 'var(--shape-radius-full)',
@@ -3985,7 +4164,7 @@ function OnboardingFlow({ onComplete }) {
               }}
             >Allow notifications</button>
             <button
-              onClick={() => setStep(5)}
+              onClick={onComplete}
               style={{
                 height: 52,
                 borderRadius: 'var(--shape-radius-full)',
@@ -4004,53 +4183,7 @@ function OnboardingFlow({ onComplete }) {
     );
   }
 
-  return (
-    <div className="screen-fade" style={{
-      position: 'absolute', inset: 0, zIndex: 210,
-      background: '#F4F4F5',
-      overflow: 'hidden',
-    }}>
-      <IOSStatusBar />
-      <div style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        padding: '0 40px', textAlign: 'center',
-      }}>
-        <div style={{ fontSize: 42, lineHeight: '48px', marginBottom: 20 }}>🎉</div>
-        <h1 style={{
-          margin: 0,
-          fontFamily: '"Manrope", system-ui, sans-serif',
-          fontSize: 29,
-          lineHeight: '36px',
-          fontWeight: 800,
-          color: '#09090B',
-          letterSpacing: -0.9,
-        }}>Welcome to Medeo!</h1>
-        <p style={{
-          margin: '20px 0 0',
-          maxWidth: 300,
-          fontFamily: '"Manrope", system-ui, sans-serif',
-          fontSize: 16,
-          lineHeight: '24px',
-          fontWeight: 600,
-          color: '#8A838F',
-        }}>Can’t wait to see your amazing creations on Medeo.</p>
-      </div>
-      <button onClick={onComplete} style={{
-        position: 'absolute', left: 38, right: 38, bottom: 54,
-        height: 56,
-        borderRadius: 'var(--shape-radius-full)',
-        border: 'none',
-        background: '#09090B',
-        color: '#FFFFFF',
-        fontFamily: '"Manrope", system-ui, sans-serif',
-        fontSize: 17,
-        fontWeight: 600,
-        cursor: 'pointer',
-      }}>Start Now</button>
-    </div>
-  );
+  return null;
 }
 
 function OnboardingAuthButton({ label, icon, dark, blue, ghost, onClick }) {
@@ -4072,6 +4205,202 @@ function OnboardingAuthButton({ label, icon, dark, blue, ghost, onClick }) {
       {icon && <span style={{ fontSize: icon === 'G' ? 19 : 20, fontWeight: 800 }}>{icon}</span>}
       {label}
     </button>
+  );
+}
+
+function ReferralRewardSheet({ offer, accent = '#863dfb', onClaim, onClose }) {
+  if (!offer) return null;
+  const amount = typeof offer.amount === 'number' ? offer.amount : 50;
+  const inviter = offer.inviterName || 'A friend';
+  const code = offer.code || 'MEDEO50';
+  return (
+    <div className="screen-fade" style={{
+      position: 'absolute',
+      inset: 0,
+      zIndex: 215,
+      background: 'rgba(9, 9, 11, 0.20)',
+      backdropFilter: 'blur(10px) saturate(140%)',
+      WebkitBackdropFilter: 'blur(10px) saturate(140%)',
+      display: 'flex',
+      alignItems: 'flex-end',
+      padding: '0 16px 22px',
+      boxSizing: 'border-box',
+    }}>
+      <button
+        aria-label="Dismiss referral reward"
+        onClick={onClose}
+        style={{ position: 'absolute', inset: 0, border: 'none', background: 'transparent', padding: 0 }}
+      />
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        borderRadius: 32,
+        background: '#FFFFFF',
+        border: '0.5px solid rgba(255,255,255,0.72)',
+        boxShadow: '0 26px 70px rgba(20, 8, 60, 0.28), 0 4px 14px rgba(20, 8, 60, 0.10)',
+        overflow: 'hidden',
+      }}>
+        <div aria-hidden="true" style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(circle at 50% -10%, rgba(134,61,251,0.22), rgba(255,255,255,0) 45%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'relative',
+          padding: '28px 24px 22px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+        }}>
+          <div style={{
+            width: 74,
+            height: 74,
+            borderRadius: 24,
+            background: 'rgba(134,61,251,0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 14px 36px rgba(134,61,251,0.18)',
+          }}>
+            <div style={{
+              width: 52,
+              height: 52,
+              borderRadius: 18,
+              background: 'var(--color-schemes-primary)',
+              color: 'var(--color-schemes-on-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Icon.Gift size={25} color="currentColor" stroke={2.1} />
+            </div>
+          </div>
+
+          <div style={{
+            marginTop: 18,
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 13,
+            lineHeight: '18px',
+            fontWeight: 700,
+            letterSpacing: 0.2,
+            color: accent,
+          }}>
+            Invite link detected
+          </div>
+          <h2 style={{
+            margin: '8px 0 0',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 27,
+            lineHeight: '32px',
+            fontWeight: 800,
+            letterSpacing: -0.9,
+            color: '#09090B',
+          }}>
+            {inviter} sent you<br />{amount} credits
+          </h2>
+          <p style={{
+            margin: '12px 0 0',
+            maxWidth: 292,
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 14.5,
+            lineHeight: '21px',
+            fontWeight: 600,
+            color: '#625B66',
+          }}>
+            Opened from a shared QR code or invite link. Claim your welcome credits and start creating.
+          </p>
+
+          <div style={{
+            marginTop: 18,
+            width: '100%',
+            borderRadius: 18,
+            background: '#F7F2FD',
+            border: '0.5px solid rgba(134,61,251,0.14)',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            boxSizing: 'border-box',
+          }}>
+            <div style={{ textAlign: 'left', minWidth: 0 }}>
+              <div style={{
+                fontFamily: '"Manrope", system-ui, sans-serif',
+                fontSize: 12,
+                lineHeight: '16px',
+                fontWeight: 700,
+                color: '#7A737F',
+              }}>
+                Referral code
+              </div>
+              <div style={{
+                marginTop: 2,
+                fontFamily: '"Manrope", system-ui, sans-serif',
+                fontSize: 15,
+                lineHeight: '20px',
+                fontWeight: 800,
+                color: '#1F1A23',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {code}
+              </div>
+            </div>
+            <div style={{
+              flexShrink: 0,
+              height: 32,
+              padding: '0 12px',
+              borderRadius: 999,
+              background: 'rgba(134,61,251,0.12)',
+              color: accent,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: 13,
+              fontWeight: 800,
+              fontVariantNumeric: 'tabular-nums',
+            }}>
+              +{amount}
+            </div>
+          </div>
+
+          <button onClick={onClaim} style={{
+            marginTop: 18,
+            width: '100%',
+            height: 56,
+            borderRadius: 'var(--shape-radius-full)',
+            border: 'none',
+            background: 'var(--color-schemes-primary)',
+            color: 'var(--color-schemes-on-primary)',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 16,
+            lineHeight: '22px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            boxShadow: '0 12px 26px rgba(134,61,251,0.24)',
+          }}>
+            Claim {amount} credits
+          </button>
+          <button onClick={onClose} style={{
+            height: 44,
+            marginTop: 4,
+            border: 'none',
+            background: 'transparent',
+            color: '#7A737F',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}>
+            Maybe later
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -4160,4 +4489,5 @@ window.ConversationScreen = ConversationScreen;
 window.NotificationScreen = NotificationScreen;
 window.RecipeDetailScreen = RecipeDetailScreen;
 window.OnboardingFlow = OnboardingFlow;
+window.ReferralRewardSheet = ReferralRewardSheet;
 window.RecipeCard = RecipeCard;

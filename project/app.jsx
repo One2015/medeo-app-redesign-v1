@@ -51,7 +51,7 @@ function App() {
   // exposed via a Tweaks button and a long-press on a homepage card.
   const [shareViewRecipe, setShareViewRecipe] = useState(null);
   // Medeo TV share page — reusable share destination opened from recipe
-  // detail, share/result page, and invite reward notifications.
+  // detail and share/result page.
   const [sharePageRecipe, setSharePageRecipe] = useState(null);
 
   // Generation queue — items the user has sent to render. Each item is
@@ -71,10 +71,26 @@ function App() {
   const [completedCreations, setCompletedCreations] = useState([]);
 
   // Credits balance — the source of truth for the Home header pill.
-  // Starts at the prototype baseline; bumps when an invite-reward event
-  // fires (see `onInviteReward`). Real product would sync from server.
+  // Starts at the prototype baseline; real product would sync from server.
   const [credits, setCredits] = useState(333);
   const [creditsReward, setCreditsReward] = useState(null);
+  const [referralOffer, setReferralOffer] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get('ref') || params.get('invite') || params.get('code');
+      if (!ref) return null;
+      const clean = String(ref).trim();
+      return {
+        id: `ref-${clean}-${Date.now()}`,
+        code: clean.toUpperCase(),
+        inviterName: clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : 'A friend',
+        amount: 50,
+        source: 'link',
+      };
+    } catch (_) {
+      return null;
+    }
+  });
 
   // Toast — single in-app banner near the top of the phone. Slides in
   // from the top, auto-dismisses after ~3.2s per spec (2.5–4s range).
@@ -109,6 +125,7 @@ function App() {
       theme: item.theme,
       image: item.image || recipe.image,
       recipe,
+      fromRecipe: !!item.fromRecipe,
       when: 'Just now',
       completedAt: Date.now(),
     }, ...c]);
@@ -118,7 +135,7 @@ function App() {
       body: `"${item.title}"`,
       image: item.image || recipe.image,
       theme: item.theme,
-      recipe,
+      recipe: { ...recipe, fromRecipe: !!item.fromRecipe },
     });
   }, [showToast]);
 
@@ -152,6 +169,7 @@ function App() {
         theme: recipe.theme,
         image: recipe.image,
         progress: 0,
+        fromRecipe: !!recipe.fromRecipe,
       },
     ]);
     showToast({
@@ -167,22 +185,15 @@ function App() {
     setQueue((q) => q.filter((it) => it.id !== id));
   }, []);
 
-  // Invite-reward event — fires when a user's shared link results in a
-  // new signup. V1 no longer stores this in an inbox; the feedback is
-  // the in-app toast plus the Home credits pill rolling upward.
-  const onInviteReward = useCallback((amount = 50, inviteeName) => {
-    const id = 'inv-' + Date.now();
+  const claimReferralReward = useCallback(() => {
+    if (!referralOffer) return;
+    const amount = typeof referralOffer.amount === 'number' ? referralOffer.amount : 50;
+    const id = `ref-claim-${Date.now()}`;
     setCredits((c) => c + amount);
     setCreditsReward({ id, amount });
-    showToast({
-      kind: 'invite',
-      title: `+${amount} credits earned`,
-      body: inviteeName
-        ? `${inviteeName} joined via your link`
-        : 'A friend joined via your link',
-      amount,
-    });
-  }, [showToast]);
+    setReferralOffer(null);
+    setTab('home');
+  }, [referralOffer]);
 
   // Expose enqueue globally so screens (e.g. detail page CTA) can push
   // jobs without prop-drilling through every layer.
@@ -282,6 +293,10 @@ function App() {
             recipe={shareViewRecipe}
             accent={accent}
             onClose={() => setShareViewRecipe(null)}
+            onEditRecipe={(r) => {
+              setShareViewRecipe(null);
+              openDetail(r, { autoOpenConfig: true });
+            }}
             onOpenCreationLog={(r) => {
               setChatProject(r);
               setShareViewRecipe(null);
@@ -327,15 +342,11 @@ function App() {
             onTap={() => {
               // Body tap — route to the natural destination for the
               // kind. Ready → watch the result; Failed → review &
-              // adjust inputs in the config sheet before retrying;
-              // Invite → Home, where the credits header pill is the
-              // visible source of truth for the reward.
+              // adjust inputs in the config sheet before retrying.
               if (toast.kind === 'ready' && toast.recipe) {
                 setShareViewRecipe(toast.recipe);
               } else if (toast.kind === 'failed' && toast.recipe) {
                 openDetail(toast.recipe, { autoOpenConfig: true });
-              } else if (toast.kind === 'invite') {
-                setTab('home');
               }
               setToast(null);
             }}
@@ -347,8 +358,6 @@ function App() {
                 openDetail(toast.recipe, { autoOpenConfig: true });
               } else if (toast.kind === 'ready' && toast.recipe) {
                 setShareViewRecipe(toast.recipe);
-              } else if (toast.kind === 'invite') {
-                setTab('home');
               }
               setToast(null);
             }}
@@ -373,9 +382,10 @@ function App() {
             accent={accent}
             navHeight={90}
             onSend={(text) => {
-              // Free-create submit starts the generation task, then opens
-              // the creation log. The result page is only reached by
-              // tapping the generated preview inside the conversation.
+              // Free-create submit starts the generation task and returns
+              // to Home (ambient feedback via toast + queue). The job shows
+              // up as a "generating" card once the user opens CreateSpace;
+              // tapping that card is what opens the conversation log.
               const trimmed = (text || '').trim();
               const title = trimmed
                 ? (trimmed.length > 60 ? trimmed.slice(0, 60).trim() + '…' : trimmed)
@@ -389,7 +399,8 @@ function App() {
               };
               enqueue(creation);
               setComposerOpen(false);
-              setChatProject(creation);
+              setChatProject(null);
+              setTab('home');
               setQueueOpen(false);
             }}
           />
@@ -407,6 +418,14 @@ function App() {
               setOnboardingDone(true);
               setTab('home');
             }}
+          />
+        )}
+        {onboardingDone && referralOffer && (
+          <ReferralRewardSheet
+            offer={referralOffer}
+            accent={accent}
+            onClaim={claimReferralReward}
+            onClose={() => setReferralOffer(null)}
           />
         )}
       </Phone>
@@ -463,6 +482,18 @@ function App() {
             setShareViewRecipe(pick);
             setProfileOpen(false); setComposerOpen(false);
           }} secondary />
+          <TweakButton label="Open via referral link (+50)" onClick={() => {
+            setOnboardingDone(true);
+            setTab('home');
+            setReferralOffer({
+              id: `ref-demo-${Date.now()}`,
+              code: 'ALEX50',
+              inviterName: 'Alex',
+              amount: 50,
+              source: 'qr',
+            });
+            setProfileOpen(false); setComposerOpen(false);
+          }} secondary />
         </TweakSection>
         <TweakSection label="Toast & push demos">
           <TweakButton label="Toast: Adding to queue" onClick={() => {
@@ -489,13 +520,6 @@ function App() {
               body: `"${pick.title}" couldn't finish`,
               image: pick.image, theme: pick.theme, recipe: pick,
             });
-          }} secondary />
-          <TweakButton label="Invite reward: friend joined (+50)" onClick={() => {
-            // Picks a random name from a small pool so successive clicks
-            // produce visibly different inbox entries.
-            const names = ['Alex', 'Priya', 'Jordan', 'Mika', 'Sam', 'Wei'];
-            const name = names[Math.floor(Math.random() * names.length)];
-            onInviteReward(50, name);
           }} secondary />
         </TweakSection>
       </TweaksPanel>
@@ -562,8 +586,7 @@ function ToastBanner({ toast, accent, onTap, onAction, onDismiss }) {
   if (!toast) return null;
   const isReady = toast.kind === 'ready';
   const isFailed = toast.kind === 'failed';
-  const isInvite = toast.kind === 'invite';
-  const tappable = isReady || isFailed || isInvite;
+  const tappable = isReady || isFailed;
   const theme = (window.CARD_THEMES || {})[toast.theme] || (window.CARD_THEMES || {}).jelly;
 
   // Icon shown when no thumbnail is provided.
@@ -571,9 +594,7 @@ function ToastBanner({ toast, accent, onTap, onAction, onDismiss }) {
     ? <Icon.Warning size={18} color="#FFB4B4" />
     : isReady
       ? <Icon.Sparkle size={18} color="#FFFFFF" />
-      : isInvite
-        ? <Icon.Gift size={20} color="#F6B73B" stroke={2} />
-        : <Icon.Plus size={18} color="#FFFFFF" stroke={2.6} />;
+      : <Icon.Plus size={18} color="#FFFFFF" stroke={2.6} />;
 
   return (
     <div
@@ -606,16 +627,12 @@ function ToastBanner({ toast, accent, onTap, onAction, onDismiss }) {
       <div style={{
         width: 40, height: 40, borderRadius: 12, flexShrink: 0,
         overflow: 'hidden',
-        background: isInvite
-          ? 'linear-gradient(160deg, rgba(246, 183, 59, 0.22) 0%, rgba(246, 183, 59, 0.08) 100%)'
-          : toast.image ? '#000' : (theme && theme.bg) || 'rgba(255,255,255,0.10)',
+        background: toast.image ? '#000' : (theme && theme.bg) || 'rgba(255,255,255,0.10)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative',
-        border: isInvite ? '0.5px solid rgba(246, 183, 59, 0.4)' : 'none',
+        border: 'none',
       }}>
-        {isInvite ? (
-          fallbackGlyph
-        ) : toast.image ? (
+        {toast.image ? (
           <img src={toast.image} alt="" style={{
             width: '100%', height: '100%', objectFit: 'cover', display: 'block',
             filter: isFailed ? 'saturate(0.4) brightness(0.7)' : 'none',

@@ -28,6 +28,36 @@ const Icon = {
       <path d="M12 2l1.6 5.4L19 9l-5.4 1.6L12 16l-1.6-5.4L5 9l5.4-1.6L12 2z"/>
     </svg>
   ),
+  // Double-star "sparkles" glyph — a large 4-point star with a smaller
+  // companion to its upper-left. Matches the recipe badge reference.
+  Sparkles: ({ size = 16, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M14.5 6.5l1.9 5 5 1.9-5 1.9-1.9 5-1.9-5-5-1.9 5-1.9 1.9-5z"/>
+      <path d="M6 2.5l.95 2.55L9.5 6l-2.55.95L6 9.5l-.95-2.55L2.5 6l2.55-.95L6 2.5z"/>
+    </svg>
+  ),
+  X: ({ size = 20, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M18.244 2H21.5l-7.5 8.57L22.5 22h-6.59l-4.6-6.02L5.95 22H2.69l8.02-9.17L1.5 2h6.76l4.16 5.5L18.244 2zm-1.16 18h1.83L7.01 3.9H5.05l12.034 16.1z"/>
+    </svg>
+  ),
+  Instagram: ({ size = 20, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="5"/>
+      <circle cx="12" cy="12" r="4"/>
+      <circle cx="17.3" cy="6.7" r="1.1" fill={color} stroke="none"/>
+    </svg>
+  ),
+  TikTok: ({ size = 20, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M16.5 3c.3 2 1.5 3.62 3.5 3.9v2.52c-1.27 0-2.48-.39-3.5-1.02v6.13c0 3.07-2.5 5.47-5.6 5.47S5.3 17.6 5.3 14.53 7.8 9.06 10.9 9.06c.31 0 .61.03.9.08v2.62c-.29-.1-.6-.16-.9-.16-1.5 0-2.72 1.2-2.72 2.7s1.22 2.7 2.72 2.7 2.72-1.2 2.72-2.7V3h2.88z"/>
+    </svg>
+  ),
+  Discord: ({ size = 20, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4c-.03 0-.05.01-.07.03-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09-.02-.02-.04-.03-.07-.03-1.5.26-2.93.71-4.27 1.33-.01 0-.02.01-.03.02-2.72 4.07-3.47 8.03-3.1 11.95 0 .02.01.04.03.05 1.8 1.32 3.53 2.12 5.24 2.65.03.01.06 0 .07-.02.4-.55.76-1.13 1.07-1.74.02-.04 0-.08-.04-.09-.57-.22-1.11-.48-1.64-.78-.04-.03-.04-.09-.01-.11.11-.08.22-.17.33-.25.02-.02.05-.02.07-.01 3.44 1.57 7.15 1.57 10.55 0 .03-.02.06-.01.08.01.11.09.22.17.33.26.04.03.04.09-.01.11-.52.31-1.07.56-1.64.78-.04.01-.05.06-.04.09.32.61.68 1.19 1.07 1.74.02.02.05.03.08.02 1.72-.53 3.45-1.33 5.25-2.65.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.83 2.12-1.89 2.12z"/>
+    </svg>
+  ),
   Bolt: ({ size = 18, color = '#F4B400' }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
       <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>
@@ -55,6 +85,14 @@ const Icon = {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 12a9 9 0 1 0 3-6.7"/>
       <path d="M3 4v5h5"/>
+    </svg>
+  ),
+  Trash: ({ size = 18, color = 'currentColor', stroke = 1.9 }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16"/>
+      <path d="M10 11v6M14 11v6"/>
+      <path d="M6 7l1 14h10l1-14"/>
+      <path d="M9 7V4h6v3"/>
     </svg>
   ),
   Hamburger: ({ size = 22, color = 'currentColor', stroke = 2 }) => (
@@ -119,6 +157,13 @@ const Icon = {
   Chat: ({ size = 20, color = 'currentColor', stroke = 1.8 }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.7-.9L3 21l1.9-5.3a8.4 8.4 0 1 1 16.1-4.2z"/>
+    </svg>
+  ),
+  Flag: ({ size = 20, color = 'currentColor', stroke = 1.8 }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 21V5"/>
+      <path d="M5 5h10.5c1.2 0 2.1.9 2.1 2.1v6.2c0 1.2-.9 2.1-2.1 2.1H5"/>
+      <path d="M17.6 8.2H20"/>
     </svg>
   ),
   Share: ({ size = 18, color = 'currentColor', stroke = 1.8 }) => (

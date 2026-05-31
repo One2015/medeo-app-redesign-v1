@@ -47,26 +47,13 @@ window.CARD_THEMES = {
 
 window.CHIPS = ['All', 'Manifest for me'];
 
-// Notifications: five "kinds" map to a small badge on the thumbnail —
-//   ready    → sparkle    (a user's creation finished rendering)
-//   failed   → warning    (a creation failed to render; tap to retry)
-//   announce → megaphone  (an existing recipe is now live / promoted)
-//   new      → beaker     (a brand new recipe is here)
-//   invite   → gift       (a friend joined via the user's shared link;
-//                          they earned `amount` credits as a referral
-//                          reward — tap routes to Home where the live
-//                          credits balance lives in the header pill)
+// Notifications: three message kinds for this scope —
+//   ready    → generation result succeeded; tap to watch the result
+//   failed   → generation result failed; tap to review and retry inputs
+//   announce → official/operator template update; tap to recipe detail
 // `cta` is the inline link text. `theme` references CARD_THEMES for the
 // thumbnail gradient. Optional `image` shows real artwork when available.
 window.NOTIFICATIONS = [
-  {
-    id: 'n_invite', kind: 'invite', unread: true, when: '5m ago',
-    title: 'You earned 50 credits',
-    body: 'A friend joined Medeo via your shared link.',
-    cta: 'Share to earn more',
-    amount: 50,
-    inviteeName: 'Alex',
-  },
   {
     id: 'n1', kind: 'ready', unread: true, when: 'now',
     title: 'Your creation is ready!',
@@ -89,7 +76,7 @@ window.NOTIFICATIONS = [
     theme: 'retro', image: 'uploads/retro.png',
   },
   {
-    id: 'n3', kind: 'new', unread: true, when: '1d ago',
+    id: 'n3', kind: 'announce', unread: true, when: '1d ago',
     title: 'Space Cat Adventure is here',
     body: 'Turn your photos into cosmic journeys with this new recipe.',
     cta: 'Try it now',
@@ -103,7 +90,7 @@ window.NOTIFICATIONS = [
     theme: 'fantasy',
   },
   {
-    id: 'n5', kind: 'new', unread: false, when: '3d ago',
+    id: 'n5', kind: 'announce', unread: false, when: '3d ago',
     title: 'Mixtape Cover Maker is here',
     body: 'Design custom mixtape covers in seconds.',
     cta: 'Try it now',
@@ -118,8 +105,24 @@ window.NOTIFICATIONS = [
   },
 ];
 
-window.PROJECTS = [
-  { id: 'p1', title: 'From Fluffy Kitten to Muscular Sailor C…', when: 'Edited 21 hours ago', theme: 'cat' },
-  { id: 'p2', title: '同样视频，不同动物：猫变狗挑战', when: 'Edited 22 hours ago', theme: 'cat' },
-  { id: 'p3', title: '从瘦猫到大力士的成长之旅', when: 'Edited 23 hours ago', theme: 'cat' },
-];
+// `ts` is an epoch-ms timestamp used by the Creation tab to group
+// finished work along a timeline (Today / actual dates). Seeded relative
+// to load time so the buckets always have a sensible spread.
+//
+// `fromRecipe: true` marks a result that was generated from a template
+// recipe (vs. free-form chat). The CreateSpace grid shows a sparkle badge
+// and the result page shows a "Recipe" tag for these — we spread the real
+// RECIPES entries so the detail/config page has full context on Edit.
+(function seedProjects() {
+  const byId = Object.fromEntries((window.RECIPES || []).map((r) => [r.id, r]));
+  window.PROJECTS = [
+    // Recipe-generated results — carry the full recipe context + fromRecipe flag.
+    { ...(byId.jelly || {}), id: 'g_jelly', fromRecipe: true, when: 'Generated 2 hours ago', ts: Date.now() - 2 * 3600 * 1000 },
+    { ...(byId.retro || {}), id: 'g_retro', fromRecipe: true, when: 'Generated yesterday', ts: Date.now() - 28 * 3600 * 1000 },
+    { ...(byId.hearth || {}), id: 'g_hearth', fromRecipe: true, when: 'Generated 3 days ago', ts: Date.now() - 3 * 24 * 3600 * 1000 },
+    // Chat-generated results — no recipe context, no badge/tag.
+    { id: 'p1', title: 'From Fluffy Kitten to Muscular Sailor C…', when: 'Edited 5 hours ago', theme: 'cat', ts: Date.now() - 5 * 3600 * 1000 },
+    { id: 'p2', title: '同样视频，不同动物：猫变狗挑战', when: 'Edited yesterday', theme: 'cat', ts: Date.now() - 30 * 3600 * 1000 },
+    { id: 'p3', title: '从瘦猫到大力士的成长之旅', when: 'Edited 4 days ago', theme: 'cat', ts: Date.now() - 4 * 24 * 3600 * 1000 },
+  ];
+})();
